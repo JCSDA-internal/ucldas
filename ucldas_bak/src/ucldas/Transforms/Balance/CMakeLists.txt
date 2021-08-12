@@ -1,0 +1,9 @@
+ucldas_target_sources(
+  Balance.cc
+  Balance.h
+  BalanceFortran.h
+  ucldas_balance_mod.F90
+  ucldas_balance.interface.F90
+  ucldas_ksshts_mod.F90
+  ucldas_kst_mod.F90
+)

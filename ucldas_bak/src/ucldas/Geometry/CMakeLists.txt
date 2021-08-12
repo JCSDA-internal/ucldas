@@ -1,0 +1,9 @@
+ucldas_target_sources(
+  Geometry.cc
+  Geometry.h
+  GeometryFortran.h
+  ucldas_geom_mod.F90
+  ucldas_geom.interface.F90
+  FmsInput.cc
+  FmsInput.h
+)

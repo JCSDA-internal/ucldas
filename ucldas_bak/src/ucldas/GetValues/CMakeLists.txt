@@ -1,0 +1,10 @@
+ucldas_target_sources(
+  GetValues.cc
+  GetValues.h
+  LinearGetValues.cc
+  LinearGetValues.h
+  GetValuesFortran.h
+  ucldas_getvalues_mod.F90
+  ucldas_getvalues.reg.F90
+  ucldas_getvalues.interface.F90
+)

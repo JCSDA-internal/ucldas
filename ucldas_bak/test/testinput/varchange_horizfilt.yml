@@ -1,0 +1,22 @@
+geometry:
+  ucland_input_nml: ./inputnml/input.nml
+  fields metadata: ./fields_metadata.yml
+
+background:
+  read_from_file: 1
+  date: 2018-04-15T00:00:00Z
+  basename: ./INPUT/
+  ocn_filename: LND.res.nc
+  ice_filename: cice.res.nc
+  state variables: &ucldas_vars [cicen, hicen, socn, tocn, ssh, hocn]
+
+linear variable change tests:
+- variable change: HorizFiltUCLDAS
+  tolerance inverse: 1e-12
+  test inverse: 0
+  niter: 3
+  scale_flow: 0.5
+  scale_dist: 1e6
+  filter variables: *ucldas_vars
+  input variables: *ucldas_vars
+  output variables: *ucldas_vars

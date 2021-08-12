@@ -1,0 +1,6 @@
+geometry:
+  geom_grid_file: ucldas_gridspec.nc
+  save_local_domain: true
+  full_init: true
+  ucland_input_nml: ./inputnml/input.nml
+  fields metadata: ./fields_metadata.yml

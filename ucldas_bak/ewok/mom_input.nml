@@ -1,0 +1,11 @@
+$LND_input_nml
+      parameter_filename = '@[stage_dir]/LND_input'
+/
+
+&fms_io_nml
+      checksum_required=.false.
+/
+
+&fms_nml
+     domains_stack_size = 2000000
+/
