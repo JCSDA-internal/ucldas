@@ -16,7 +16,7 @@ public :: UCLAND_infra_init, UCLAND_infra_end
 public :: AGRID, BGRID_NE, CGRID_NE, SCALAR_PAIR, BITWISE_EXACT_SUM
 public :: domain2D
 
-!> The MOM_domain_type contains information about the domain decompositoin.
+!> The LND_domain_type contains information about the domain decompositoin.
 type, public :: UCLAND_domain_type
   type(domain2D), pointer :: mpp_domain => NULL() !< The FMS domain with halos
                                 !! on this processor, centered at h points.

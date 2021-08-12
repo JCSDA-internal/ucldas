@@ -1,4 +1,4 @@
-!> A module to monitor the overall CPU time used by MOM6 and project when to stop the model
+!> A module to monitor the overall CPU time used by UCLAND and project when to stop the model
 module UCLAND_write_cputime
 
 use UCLAND_time_manager, only : time_type, get_time!, operator(>)
@@ -16,12 +16,12 @@ integer :: MAX_TICKS      = 1000 !< The number of ticks per second, used by the 
 !> A control structure that regulates the writing of CPU time
 type, public :: write_cputime_CS ; private
   real :: maxcpu                !<   The maximum amount of cpu time per processor
-                                !! for which MOM should run before saving a restart
+                                !! for which LND should run before saving a restart
                                 !! file and quiting with a return value that
                                 !! indicates that further execution is required to
                                 !! complete the simulation, in wall-clock seconds.
   type(time_type) :: Start_time !< The start time of the simulation.
-                                !! Start_time is set in MOM_initialization.F90
+                                !! Start_time is set in LND_initialization.F90
   real :: startup_cputime       !< The CPU time used in the startup phase of the model.
   real :: prev_cputime = 0.0    !< The last measured CPU time.
   real :: dn_dcpu_min = -1.0    !< The minimum derivative of timestep with CPU time.
@@ -37,7 +37,7 @@ contains
 !> Evaluate the CPU time returned by SYSTEM_CLOCK at the start of a run
 subroutine write_cputime_start_clock(CS)
   type(write_cputime_CS), pointer :: CS !< The control structure set up by a previous
-                                        !! call to MOM_write_cputime_init.
+                                        !! call to LND_write_cputime_init.
   integer :: new_cputime   ! The CPU time returned by SYSTEM_CLOCK
   if (.not.associated(CS)) allocate(CS)
 

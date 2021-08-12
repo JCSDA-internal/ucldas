@@ -1,4 +1,4 @@
-# (C) Copyright 2017-2020 UCAR.
+# (C) Copyright 2018 UCAR.
 #
 # This software is licensed under the terms of the Apache Licence Version 2.0
 # which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
@@ -7,146 +7,127 @@
 # UCLAND
 ################################################################################
 
-cmake_minimum_required( VERSION 3.3.2 FATAL_ERROR )
+cmake_minimum_required( VERSION 3.12)
+project( ucland VERSION 2020.4.0 LANGUAGES Fortran )
 
-project( ucland C CXX Fortran)
-
-set( CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake;${CMAKE_MODULE_PATH})
-
-#set( ECBUILD_DEFAULT_BUILD_TYPE Release )
-set( ENABLE_OS_TESTS           OFF CACHE BOOL "Disable OS tests" FORCE )
-set( ENABLE_LARGE_FILE_SUPPORT OFF CACHE BOOL "Disable testing of large file support" FORCE )
-set( ENABLE_MPI ON CACHE BOOL "Compile with MPI" )
-
+# ecbuild integration
+find_package(ecbuild 3.3.2 REQUIRED)
 include( ecbuild_system NO_POLICY_SCOPE )
-
-ecbuild_requires_macro_version( 2.5 )
-
-################################################################################
-# Project
-################################################################################
-
 ecbuild_declare_project()
 
-ecbuild_enable_fortran( REQUIRED )
-ecbuild_add_cxx11_flags()
+list( APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+include( ucland_compiler_flags )
 
-set( UCLAND_LINKER_LANGUAGE Fortran )
+# ocean_bgc option
+option( ENABLE_OCEAN_BGC "Compile and use land bgc modules in UCLAND")
+
 
 ################################################################################
 # Dependencies
 ################################################################################
-# Boost
-set( Boost_MINIMUM_VERSION "1.47" )
-include_directories( ${Boost_INCLUDE_DIR} )
 
-# NetCDF
-find_package( NetCDF REQUIRED COMPONENTS Fortran )
-include_directories( ${NETCDF_INCLUDE_DIRS} )
+find_package(OpenMP COMPONENTS C Fortran)
+find_package(MPI REQUIRED COMPONENTS C Fortran)
+find_package(NetCDF REQUIRED COMPONENTS Fortran )
+find_package(fms 2020.4.0 REQUIRED )
+find_package(gsw 3.0.5 REQUIRED )
 
-# MPI
-ecbuild_find_mpi( COMPONENTS CXX Fortran REQUIRED )
-ecbuild_include_mpi()
-link_libraries(${MPI_CXX_LIBRARIES} ${MPI_Fortran_LIBRARIES})
-
-################################################################################
-# Definitions
-################################################################################
-
-################################################################################
-# Export package info
-################################################################################
-list( APPEND UCLAND_TPLS MPI NetCDF )
-
-set( UCLAND_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/noahmp
-                       ${CMAKE_CURRENT_SOURCE_DIR}/utils
-                       ${CMAKE_CURRENT_SOURCE_DIR}/driver
-                       ${CMAKE_CURRENT_SOURCE_DIR}/src/framework
-                       ${CMAKE_CURRENT_BINARY_DIR}/driver
-                       ${CMAKE_Fortran_MODULE_DIRECTORY} )
-set( UCLAND_LIBRARIES ucland )
-
-get_directory_property( UCLAND_DEFINITIONS COMPILE_DEFINITIONS )
-
-foreach( _tpl ${UCLAND_TPLS} )
-string( TOUPPER ${_tpl} TPL )
-list( APPEND UCLAND_EXTRA_DEFINITIONS   ${${TPL}_DEFINITIONS}  ${${TPL}_TPL_DEFINITIONS}  )
-list( APPEND UCLAND_EXTRA_INCLUDE_DIRS  ${${TPL}_INCLUDE_DIRS} ${${TPL}_TPL_INCLUDE_DIRS} )
-list( APPEND UCLAND_EXTRA_LIBRARIES     ${${TPL}_LIBRARIES}    ${${TPL}_TPL_LIBRARIES}    )
-endforeach()
 
 ################################################################################
 # Sources
 ################################################################################
-include( ucland_compiler_flags )
-include_directories( ${UCLAND_INCLUDE_DIRS} ${UCLAND_EXTRA_INCLUDE_DIRS} )
 
+set( UCLAND_LINKER_LANGUAGE Fortran )
+
+# ucland library
+#-------------------------------------------------------------------------------
+add_subdirectory( config_src )
+add_subdirectory( src )
 add_subdirectory( noahmp )
 add_subdirectory( utils )
 add_subdirectory( driver )
-#add_subdirectory( config_src )
-add_subdirectory( src )
 
 list( APPEND ucland_src_files
-#    ${config_src_files}
+    ${config_src_files}
     ${src_files}
+    ${noahmp_src_files}
+    ${utils_src_files}
+    ${driver_src_files}
 )
 
-# Build Doxygen documentation
-#add_subdirectory( Documents )
+if (${ENABLE_OCEAN_BGC})
+    add_definitions( -D_USE_GENERIC_TRACER )
+    add_subdirectory( pkg/ocean_BGC )
+    list( APPEND ucland_src_files ${ocean_bgc_src_files} )
+endif()
 
 ecbuild_add_library( TARGET   ucland
                      SOURCES  ${ucland_src_files}
-                     LIBS     ${NETCDF_LIBRARIES}
-                              ${FMS_LIBRARIES}
-                     INCLUDES ${FMS_INCLUDES}
                      INSTALL_HEADERS LISTED
                      LINKER_LANGUAGE ${UCLAND_LINKER_LANGUAGE}
                     )
 
-set ( ucland_exe_files
-    config_src/solo_driver/UCLAND_driver.F90
-)
+# target_include_directories( ucland PRIVATE
+#    ${CMAKE_Fortran_MODULE_DIRECTORY} )
 
-ecbuild_add_executable( TARGET   ucland.x
-                        SOURCES  ${ucland_exe_files}
-                        LIBS     ${UCLAND_LIBRARIES}
-                        INCLUDES ${UCLAND_INCLUDES}
-                        LINKER_LANGUAGE ${UCLAND_LINKER_LANGUAGE}
-                       )
+target_link_libraries(ucland PUBLIC NetCDF::NetCDF_Fortran)
+target_link_libraries(ucland PUBLIC MPI::MPI_Fortran)
+target_link_libraries(ucland PUBLIC OpenMP::OpenMP_C OpenMP::OpenMP_Fortran)
+target_link_libraries(ucland PUBLIC fms)
+target_link_libraries(ucland PUBLIC gsw)
+
+# Fortran module output directory for build and install interfaces
+set(MODULE_DIR module/${PROJECT_NAME}/${CMAKE_Fortran_COMPILER_ID}/${CMAKE_Fortran_COMPILER_VERSION})
+set_target_properties(${PROJECT_NAME} PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/${MODULE_DIR})
+install(DIRECTORY ${CMAKE_BINARY_DIR}/${MODULE_DIR}/ DESTINATION ${MODULE_DIR})
+target_include_directories(${PROJECT_NAME} INTERFACE
+                            $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/${MODULE_DIR}>
+                            $<INSTALL_INTERFACE:${MODULE_DIR}>)
+
+# Installed .h include locations
+target_include_directories(ucland PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/config_src/dynamic>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/framework>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/utils/src>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+
+
+# ucland.x executable
+#-------------------------------------------------------------------------------
+set ( ucland_exe_files
+    config_src/solo_driver/LND_driver.F90
+)
 
 ecbuild_add_executable( TARGET  ufsLandDriver.x
                         SOURCES ./driver/ufsLandDriver.f90
-                        LIBS    driver
-                                noahmp
-                                utils
+                        LIBS    ucland
                       )
 
 ecbuild_add_executable( TARGET   convert_restart_vec2tiles.x
                         SOURCES  ./config_src/solo_driver/convert_restart_vec2tiles.F90
-                        LIBS     utils
+                        LIBS     ucland
                        )
 
 ecbuild_add_executable( TARGET   convert_restart_tiles2vec.x
                         SOURCES  ./config_src/solo_driver/convert_restart_tiles2vec.F90
-                        LIBS     utils
+                        LIBS     ucland
                        )
 
 ecbuild_add_executable( TARGET  transform_static_c96.x
                         SOURCES ./config_src/transform_static_c96.F90
-                        LIBS    utils
+                        LIBS    ucland
                       )
 
-if(ECBUILD_INSTALL_FORTRAN_MODULES)
-  install(DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY}/${CMAKE_CFG_INTDIR} DESTINATION ${INSTALL_INCLUDE_DIR} )
-endif()
+ecbuild_add_executable( TARGET   ucland.x
+                        SOURCES  ${ucland_exe_files}
+                        LIBS     ucland
+                        LINKER_LANGUAGE ${UCLAND_LINKER_LANGUAGE}
+                       )
+
 
 ################################################################################
 # Finalise configuration
 ################################################################################
 
-# prepares a tar.gz of the sources and/or binaries
 ecbuild_install_project( NAME ucland )
-
-# print the summary of the configuration
 ecbuild_print_summary()

@@ -11,6 +11,8 @@
 #include <ostream>
 #include <string>
 
+#include "ucldas/State/State.h"
+
 #include "oops/util/DateTime.h"
 #include "oops/util/Printable.h"
 
@@ -19,7 +21,6 @@ namespace eckit {
   class Configuration;
 }
 namespace ucldas {
-  class State;
   class Geometry;
   class Increment;
 }

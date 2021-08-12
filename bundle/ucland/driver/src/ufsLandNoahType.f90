@@ -41,7 +41,7 @@ type :: noah_model_type
   real(kind=kind_phys), allocatable :: dswsfc    (:) ! total sky sfc downward sw flux ( w/m**2 )   im
   real(kind=kind_phys), allocatable :: snet      (:) ! total sky sfc netsw flx into ground(w/m**2) im
   real(kind=kind_phys), allocatable :: tg3       (:) ! deep soil temperature (k)                   im
-  real(kind=kind_phys), allocatable :: cm        (:) ! surface exchange coeff for momentum (m/s)   im
+  real(kind=kind_phys), allocatable :: cm        (:) ! surface exchange coeff for lndentum (m/s)   im
   real(kind=kind_phys), allocatable :: ch        (:) ! surface exchange coeff heat & moisture(m/s) im
   real(kind=kind_phys), allocatable :: prsl1     (:) ! sfc layer 1 mean pressure (pa)              im
   real(kind=kind_phys), allocatable :: prslki    (:) !                                             im

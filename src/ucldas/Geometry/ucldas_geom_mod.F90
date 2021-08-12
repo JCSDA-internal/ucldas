@@ -6,14 +6,16 @@
 
 module ucldas_geom_mod
 
-use atlas_module, only: atlas_functionspace_pointcloud, atlas_fieldset, atlas_field, atlas_real, atlas_integer
-use UCLAND_domains, only : UCLAND_domain_type, UCLAND_infra_init
-use UCLAND_io,      only : io_infra_init
+use atlas_module, only: atlas_functionspace_pointcloud, atlas_fieldset, &
+    atlas_field, atlas_real, atlas_integer, atlas_geometry, atlas_indexkdtree
+use LND_domains, only : LND_domain_type, LND_infra_init
+use LND_io,      only : io_infra_init
+use ucldas_fields_metadata_mod
 use ucldas_ucland, only: ucldas_ucland_config, ucldas_ucland_init, ucldas_geomdomain_init
 use ucldas_utils, only: write2pe, ucldas_remap_idw
 use kinds, only: kind_real
 use fckit_configuration_module, only: fckit_configuration
-use fckit_mpi_module, only: fckit_mpi_comm
+use fckit_mpi_module, only: fckit_mpi_comm, fckit_mpi_sum
 use fms_io_mod, only : fms_io_init, fms_io_exit, &
                        register_restart_field, restart_file_type, &
                        restore_state, query_initialized, &
@@ -22,9 +24,9 @@ use mpp_domains_mod, only : mpp_get_compute_domain, mpp_get_data_domain, &
                             mpp_get_global_domain, mpp_update_domains
 use fms_mod,         only : write_data
 use fms_io_mod,      only : fms_io_init, fms_io_exit
-use UCLAND_diag_remap,  only : diag_remap_ctrl, diag_remap_init, diag_remap_configure_axes, &
+use LND_diag_remap,  only : diag_remap_ctrl, diag_remap_init, diag_remap_configure_axes, &
                             diag_remap_end, diag_remap_update
-use UCLAND_EOS,         only : EOS_type
+use LND_EOS,         only : EOS_type
 
 implicit none
 
@@ -34,8 +36,10 @@ public :: ucldas_geom, &
 
 !> Geometry data structure
 type :: ucldas_geom
-    type(UCLAND_domain_type), pointer :: Domain !< Ocean model domain
+    type(LND_domain_type), pointer :: Domain !< Ocean model domain
     integer :: nzo, nzo_zstar
+    integer :: nzl, nzl_zstar
+    integer :: nzs, nzs_zstar
     integer :: isc, iec, jsc, jec  !< indices of compute domain
     integer :: isd, ied, jsd, jed  !< indices of data domain
     integer :: isg, ieg, jsg, jeg  !< indices of global domain
@@ -43,6 +47,7 @@ type :: ucldas_geom
     integer :: isdl, iedl, jsdl, jedl  !< indices of local data domain
     real(kind=kind_real), allocatable, dimension(:)   :: lonh, lath
     real(kind=kind_real), allocatable, dimension(:)   :: lonq, latq
+    real(kind=kind_real), allocatable, dimension(:)   :: lonlnd, latlnd
     real(kind=kind_real), allocatable, dimension(:,:) :: lon, lat !< Tracer point grid
     real(kind=kind_real), allocatable, dimension(:,:) :: lonu, latu !< Zonal velocity grid
     real(kind=kind_real), allocatable, dimension(:,:) :: lonv, latv !< Meridional velocity grid
@@ -52,13 +57,16 @@ type :: ucldas_geom
     real(kind=kind_real), allocatable, dimension(:,:) :: mask2du   !< u        "   . 0 = land 1 = ocean
     real(kind=kind_real), allocatable, dimension(:,:) :: mask2dv   !< v        "   . 0 = land 1 = ocean
     real(kind=kind_real), allocatable, dimension(:,:) :: cell_area
+    real(kind=kind_real), allocatable, dimension(:,:) :: cell_elev
     real(kind=kind_real), allocatable, dimension(:,:) :: rossby_radius
+    real(kind=kind_real), allocatable, dimension(:,:) :: distance_from_coast
     real(kind=kind_real), allocatable, dimension(:,:,:) :: h
     real(kind=kind_real), allocatable, dimension(:,:,:) :: h_zstar
     logical :: save_local_domain = .false. ! If true, save the local geometry for each pe.
     character(len=:), allocatable :: geom_grid_file
     type(fckit_mpi_comm) :: f_comm
     type(atlas_functionspace_pointcloud) :: afunctionspace
+    type(ucldas_fields_metadata) :: fields_metadata
 
     contains
     procedure :: init => geom_init
@@ -85,13 +93,14 @@ subroutine geom_init(self, f_conf, f_comm)
   type(fckit_configuration), intent(in) :: f_conf
   type(fckit_mpi_comm),   intent(in)    :: f_comm
 
+  character(len=:), allocatable :: str
   logical :: full_init = .false.
 
   ! MPI communicator
   self%f_comm = f_comm
 
   ! Domain decomposition
-  call ucldas_geomdomain_init(self%Domain, self%nzo, f_comm)
+  call ucldas_geomdomain_init(self%Domain, self%nzl, f_comm)
 
   ! User-defined grid filename
   if ( .not. f_conf%get("geom_grid_file", self%geom_grid_file) ) &
@@ -120,10 +129,17 @@ subroutine geom_init(self, f_conf, f_comm)
   call mpp_update_domains(self%mask2du, self%Domain%mpp_domain)
   call mpp_update_domains(self%mask2dv, self%Domain%mpp_domain)
   call mpp_update_domains(self%cell_area, self%Domain%mpp_domain)
+  call mpp_update_domains(self%cell_elev, self%Domain%mpp_domain)
+  call mpp_update_domains(self%rossby_radius, self%Domain%mpp_domain)
+  call mpp_update_domains(self%distance_from_coast, self%Domain%mpp_domain)
 
   ! Set output option for local geometry
   if ( .not. f_conf%get("save_local_domain", self%save_local_domain) ) &
      self%save_local_domain = .false.
+
+  ! process the fields metadata file
+  call f_conf%get_or_die("fields metadata", str)
+  call self%fields_metadata%create(str)
 
 end subroutine geom_init
 
@@ -132,6 +148,8 @@ end subroutine geom_init
 subroutine geom_end(self)
   class(ucldas_geom), intent(out)  :: self
 
+  if (allocated(self%lonlnd))        deallocate(self%lonlnd)
+  if (allocated(self%latlnd))        deallocate(self%latlnd)
   if (allocated(self%lonh))          deallocate(self%lonh)
   if (allocated(self%lath))          deallocate(self%lath)
   if (allocated(self%lonq))          deallocate(self%lonq)
@@ -148,7 +166,9 @@ subroutine geom_end(self)
   if (allocated(self%mask2du))       deallocate(self%mask2du)
   if (allocated(self%mask2dv))       deallocate(self%mask2dv)
   if (allocated(self%cell_area))     deallocate(self%cell_area)
+  if (allocated(self%cell_elev))     deallocate(self%cell_elev)
   if (allocated(self%rossby_radius)) deallocate(self%rossby_radius)
+  if (allocated(self%distance_from_coast)) deallocate(self%distance_from_coast)
   if (allocated(self%h))             deallocate(self%h)
   if (allocated(self%h_zstar))       deallocate(self%h_zstar)
   nullify(self%Domain)
@@ -192,19 +212,35 @@ subroutine geom_fill_atlas_fieldset(self, afieldset)
   call afieldset%add(afield)
   call afield%final()
 
+  ! Add elev
+  afield = self%afunctionspace%create_field(name='elev', kind=atlas_real(kind_real), levels=0)
+  call afield%data(real_ptr_1)
+  real_ptr_1 = pack(self%cell_elev(self%isc:self%iec,self%jsc:self%jec),.true.)
+  call afieldset%add(afield)
+  call afield%final()
+
+! ! Add vertical unit
+! afield = self%afunctionspace%create_field(name='vunit', kind=atlas_real(kind_real), levels=self%nzo)
+! call afield%data(real_ptr_2)
+! do jz=1,self%nzo
+!   real_ptr_2(jz,:) = real(jz, kind_real)
+! end do
+! call afieldset%add(afield)
+! call afield%final()
+
   ! Add vertical unit
-  afield = self%afunctionspace%create_field(name='vunit', kind=atlas_real(kind_real), levels=self%nzo)
+  afield = self%afunctionspace%create_field(name='vunit', kind=atlas_real(kind_real), levels=self%nzl)
   call afield%data(real_ptr_2)
-  do jz=1,self%nzo
+  do jz=1,self%nzl
     real_ptr_2(jz,:) = real(jz, kind_real)
   end do
   call afieldset%add(afield)
   call afield%final()
 
   ! Add geographical mask
-  afield = self%afunctionspace%create_field(name='gmask', kind=atlas_integer(kind(0)), levels=self%nzo)
+  afield = self%afunctionspace%create_field(name='gmask', kind=atlas_integer(kind(0)), levels=self%nzl)
   call afield%data(int_ptr_2)
-  do jz=1,self%nzo
+  do jz=1,self%nzl
     int_ptr_2(jz,:) = int(pack(self%mask2d(self%isc:self%iec,self%jsc:self%jec),.true.))
   end do
   call afieldset%add(afield)
@@ -215,40 +251,46 @@ end subroutine geom_fill_atlas_fieldset
 ! ------------------------------------------------------------------------------
 !> Clone, self = other
 subroutine geom_clone(self, other)
-  class(ucldas_geom), intent( in) :: self
-  class(ucldas_geom), intent(out) :: other
+  class(ucldas_geom), intent(inout) :: self
+  class(ucldas_geom), intent(in) :: other
 
   ! Clone communicator
-  other%f_comm = self%f_comm
+  self%f_comm = other%f_comm
 
   ! Clone fms domain and vertical levels
-  other%Domain => self%Domain
-  other%nzo = self%nzo
+  self%Domain => other%Domain
+  self%nzo = other%nzo
+  self%nzl = other%nzl
+  self%nzs = other%nzs
 
   !
-  other%geom_grid_file = self%geom_grid_file
+  self%geom_grid_file = other%geom_grid_file
 
   ! Allocate and clone geometry
-  call geom_allocate(other)
-  other%lonh = self%lonh
-  other%lath = self%lath
-  other%lonq = self%lonq
-  other%latq = self%latq
-  other%lon = self%lon
-  other%lat = self%lat
-  other%lonu = self%lonu
-  other%latu = self%latu
-  other%lonv = self%lonv
-  other%latv = self%latv
-  other%sin_rot = self%sin_rot
-  other%cos_rot = self%cos_rot
-  other%mask2d = self%mask2d
-  other%mask2du = self%mask2du
-  other%mask2dv = self%mask2dv
-  other%cell_area = self%cell_area
-  other%rossby_radius = self%rossby_radius
-  other%h = self%h
-
+  call geom_allocate(self)
+  self%lonh = other%lonh
+  self%lath = other%lath
+  self%lonq = other%lonq
+  self%latq = other%latq
+  self%lonlnd = other%lonlnd
+  self%latlnd = other%latlnd
+  self%lon = other%lon
+  self%lat = other%lat
+  self%lonu = other%lonu
+  self%latu = other%latu
+  self%lonv = other%lonv
+  self%latv = other%latv
+  self%sin_rot = other%sin_rot
+  self%cos_rot = other%cos_rot
+  self%mask2d = other%mask2d
+  self%mask2du = other%mask2du
+  self%mask2dv = other%mask2dv
+  self%cell_area = other%cell_area
+  self%cell_elev = other%cell_elev
+  self%rossby_radius = other%rossby_radius
+  self%distance_from_coast = other%distance_from_coast
+  self%h = other%h
+  call other%fields_metadata%clone(self%fields_metadata)
 end subroutine geom_clone
 
 ! ------------------------------------------------------------------------------
@@ -270,6 +312,8 @@ subroutine geom_gridgen(self)
   self%lath = ucland_config%grid%gridlatt
   self%lonq = ucland_config%grid%gridlonb
   self%latq = ucland_config%grid%gridlatb
+  self%lonlnd = ucland_config%grid%gridlonlnd
+  self%latlnd = ucland_config%grid%gridlatlnd
   self%lon = ucland_config%grid%GeoLonT
   self%lat = ucland_config%grid%GeoLatT
   self%lonu = ucland_config%grid%geoLonCu
@@ -284,14 +328,15 @@ subroutine geom_gridgen(self)
   self%mask2du = ucland_config%grid%mask2dCu
   self%mask2dv = ucland_config%grid%mask2dCv
   self%cell_area  = ucland_config%grid%areaT
-  self%h = ucland_config%UCLAND_CSp%h
+  self%cell_elev  = ucland_config%grid%elev
+  self%h = ucland_config%LND_CSp%h
 
   ! Setup intermediate zstar coordinate
-  allocate(tracer(self%isd:self%ied, self%jsd:self%jed, self%nzo))
+  allocate(tracer(self%isd:self%ied, self%jsd:self%jed, self%nzl))
   tracer = 0.d0 ! dummy tracer
   call diag_remap_init(remap_ctrl, coord_tuple='ZSTAR, ZSTAR, ZSTAR', answers_2018=answers_2018)
   call diag_remap_configure_axes(remap_ctrl, ucland_config%GV, ucland_config%scaling, ucland_config%param_file)
-  self%nzo_zstar = remap_ctrl%nz
+  self%nzl_zstar = remap_ctrl%nz
   if (allocated(self%h_zstar)) deallocate(self%h_zstar)
   allocate(self%h_zstar(self%isd:self%ied, self%jsd:self%jed, 1:remap_ctrl%nz))
 
@@ -306,6 +351,8 @@ subroutine geom_gridgen(self)
   ! Get Rossby Radius
   call geom_rossby_radius(self)
 
+  call geom_distance_from_coast(self)
+
   ! Output to file
   call geom_write(self)
 
@@ -316,7 +363,7 @@ end subroutine geom_gridgen
 subroutine geom_allocate(self)
   class(ucldas_geom), intent(inout) :: self
 
-  integer :: nzo
+  integer :: nzo, nzl, nzs
   integer :: isd, ied, jsd, jed
 
   ! Get domain shape (number of levels, indices of data and compute domain)
@@ -327,12 +374,16 @@ subroutine geom_allocate(self)
   call geom_get_domain_indices(self, "compute", self%iscl, self%iecl, self%jscl, self%jecl, local=.true.)
   call geom_get_domain_indices(self, "data", self%isdl, self%iedl, self%jsdl, self%jedl, local=.true.)
   nzo = self%nzo
+  nzl = self%nzl
+  nzs = self%nzs
 
   ! Allocate arrays on compute domain
   allocate(self%lonh(self%isg:self%ieg));        self%lonh = 0.0_kind_real
   allocate(self%lath(self%jsg:self%jeg));        self%lath = 0.0_kind_real
   allocate(self%lonq(self%isg:self%ieg));        self%lonq = 0.0_kind_real
   allocate(self%latq(self%jsg:self%jeg));        self%latq = 0.0_kind_real
+  allocate(self%lonlnd(self%isg:self%ieg));      self%lonlnd = 0.0_kind_real
+  allocate(self%latlnd(self%jsg:self%jeg));      self%latlnd = 0.0_kind_real
   allocate(self%lon(isd:ied,jsd:jed));           self%lon = 0.0_kind_real
   allocate(self%lat(isd:ied,jsd:jed));           self%lat = 0.0_kind_real
   allocate(self%lonu(isd:ied,jsd:jed));          self%lonu = 0.0_kind_real
@@ -348,10 +399,80 @@ subroutine geom_allocate(self)
   allocate(self%mask2dv(isd:ied,jsd:jed));       self%mask2dv = 0.0_kind_real
 
   allocate(self%cell_area(isd:ied,jsd:jed));     self%cell_area = 0.0_kind_real
+  allocate(self%cell_elev(isd:ied,jsd:jed));     self%cell_elev = 0.0_kind_real
   allocate(self%rossby_radius(isd:ied,jsd:jed)); self%rossby_radius = 0.0_kind_real
-  allocate(self%h(isd:ied,jsd:jed,1:nzo));       self%h = 0.0_kind_real
+  allocate(self%distance_from_coast(isd:ied,jsd:jed)); self%distance_from_coast = 0.0_kind_real
+  allocate(self%h(isd:ied,jsd:jed,1:nzl));       self%h = 0.0_kind_real
 
 end subroutine geom_allocate
+
+! ------------------------------------------------------------------------------
+!> Calcuate distance from coast for the ocean points
+subroutine geom_distance_from_coast(self)
+  class(ucldas_geom), intent(inout) :: self
+  type(atlas_indexkdtree) :: kd
+  type(atlas_geometry) :: ageometry
+
+  integer :: i, j, idx(1)
+  integer :: num_land_l, num_land
+  integer, allocatable :: rcvcnt(:), displs(:)
+  real(kind=kind_real), allocatable :: land_lon(:), land_lat(:)
+  real(kind=kind_real), allocatable :: land_lon_l(:), land_lat_l(:)
+  real(kind=kind_real) :: closest_lon, closest_lat
+
+
+  ! collect lat/lon of all land points on all procs
+  ! (use the tracer grid and mask for this)
+  ! --------------------------------------------------
+  allocate(rcvcnt(self%f_comm%size()))
+  allocate(displs(self%f_comm%size()))
+
+  num_land_l = count(self%mask2d(self%isc:self%iec, self%jsc:self%jec)==0.0)
+  call self%f_comm%allgather(num_land_l, rcvcnt)
+  num_land = sum(rcvcnt)
+
+  displs(1) = 0
+  do j = 2, self%f_comm%size()
+    displs(j) = displs(j-1) + rcvcnt(j-1)
+  enddo
+
+  allocate(land_lon_l(num_land_l))
+  allocate(land_lat_l(num_land_l))
+  land_lon_l = pack(self%lon(self%isc:self%iec, self%jsc:self%jec), &
+                  mask=self%mask2d(self%isc:self%iec,self%jsc:self%jec)==0.0)
+  land_lat_l = pack(self%lat(self%isc:self%iec, self%jsc:self%jec), &
+                  mask=self%mask2d(self%isc:self%iec,self%jsc:self%jec)==0.0)
+  allocate(land_lon(num_land))
+  allocate(land_lat(num_land))
+
+  call self%f_comm%allgather(land_lon_l, land_lon, num_land_l, rcvcnt, displs)
+  call self%f_comm%allgather(land_lat_l, land_lat, num_land_l, rcvcnt, displs)
+
+
+  ! pass land points to the kd tree
+  !---------------------------------------
+  ageometry = atlas_geometry("Earth") !< TODO: remove this hardcoded value so
+                                      ! we can do DA on Europa at some point.
+                                      ! (Next AOP??)
+  kd = atlas_indexkdtree(ageometry)
+  call kd%reserve(num_land)
+  call kd%build(num_land, land_lon, land_lat)
+
+
+  ! for each point in local domain, lookup distance to nearest land point
+  ! ---------------------------------------
+  do i = self%isc, self%iec
+    do j = self%jsc, self%jec
+      call kd%closestPoints( self%lon(i,j), self%lat(i,j), 1, idx )
+      self%distance_from_coast(i,j) = ageometry%distance( &
+            self%lon(i,j), self%lat(i,j), land_lon(idx(1)), land_lat(idx(1)))
+    enddo
+  enddo
+
+  ! cleanup
+  call kd%final()
+
+end subroutine
 
 ! ------------------------------------------------------------------------------
 !> Read and store Rossby Radius of deformation
@@ -428,6 +549,16 @@ subroutine geom_write(self)
                                    domain=self%Domain%mpp_domain)
   idr_geom = register_restart_field(geom_restart, &
                                    &self%geom_grid_file, &
+                                   &'lonlnd', &
+                                   &self%lonlnd(:), &
+                                   domain=self%Domain%mpp_domain)
+  idr_geom = register_restart_field(geom_restart, &
+                                   &self%geom_grid_file, &
+                                   &'latlnd', &
+                                   &self%latlnd(:), &
+                                   domain=self%Domain%mpp_domain)
+  idr_geom = register_restart_field(geom_restart, &
+                                   &self%geom_grid_file, &
                                    &'lon', &
                                    &self%lon(:,:), &
                                    domain=self%Domain%mpp_domain)
@@ -473,6 +604,11 @@ subroutine geom_write(self)
                                    domain=self%Domain%mpp_domain)
   idr_geom = register_restart_field(geom_restart, &
                                    &self%geom_grid_file, &
+                                   &'elev', &
+                                   &self%cell_elev(:,:), &
+                                   domain=self%Domain%mpp_domain)
+  idr_geom = register_restart_field(geom_restart, &
+                                   &self%geom_grid_file, &
                                    &'rossby_radius', &
                                    &self%rossby_radius(:,:), &
                                    domain=self%Domain%mpp_domain)
@@ -498,14 +634,20 @@ subroutine geom_write(self)
                                    domain=self%Domain%mpp_domain)
   idr_geom = register_restart_field(geom_restart, &
                                    &self%geom_grid_file, &
-                                   &'nzo_zstar', &
-                                   &self%nzo_zstar, &
+                                   &'nzl_zstar', &
+                                   &self%nzl_zstar, &
                                    domain=self%Domain%mpp_domain)
   idr_geom = register_restart_field(geom_restart, &
                                    &self%geom_grid_file, &
                                    &'h_zstar', &
                                    &self%h_zstar(:,:,:), &
                                    domain=self%Domain%mpp_domain)
+  idr_geom = register_restart_field(geom_restart, &
+                                   &self%geom_grid_file, &
+                                   &'distance_from_coast', &
+                                   &self%distance_from_coast(:,:), &
+                                   domain=self%Domain%mpp_domain)
+
   call save_restart(geom_restart, directory='')
   call free_restart_type(geom_restart)
   call fms_io_exit()
@@ -556,6 +698,16 @@ subroutine geom_read(self)
                                    domain=self%Domain%mpp_domain)
   idr_geom = register_restart_field(geom_restart, &
                                    &self%geom_grid_file, &
+                                   &'lonlnd', &
+                                   &self%lonlnd(:), &
+                                   domain=self%Domain%mpp_domain)
+  idr_geom = register_restart_field(geom_restart, &
+                                   &self%geom_grid_file, &
+                                   &'latlnd', &
+                                   &self%latlnd(:), &
+                                   domain=self%Domain%mpp_domain)
+  idr_geom = register_restart_field(geom_restart, &
+                                   &self%geom_grid_file, &
                                    &'lon', &
                                    &self%lon(:,:), &
                                    domain=self%Domain%mpp_domain)
@@ -601,6 +753,11 @@ subroutine geom_read(self)
                                    domain=self%Domain%mpp_domain)
   idr_geom = register_restart_field(geom_restart, &
                                    &self%geom_grid_file, &
+                                   &'elev', &
+                                   &self%cell_elev(:,:), &
+                                   domain=self%Domain%mpp_domain)
+  idr_geom = register_restart_field(geom_restart, &
+                                   &self%geom_grid_file, &
                                    &'rossby_radius', &
                                    &self%rossby_radius(:,:), &
                                    domain=self%Domain%mpp_domain)
@@ -623,6 +780,11 @@ subroutine geom_read(self)
                                    &self%geom_grid_file, &
                                    &'h', &
                                    &self%h(:,:,:), &
+                                   domain=self%Domain%mpp_domain)
+  idr_geom = register_restart_field(geom_restart, &
+                                   &self%geom_grid_file, &
+                                   &'distance_from_coast', &
+                                   &self%distance_from_coast(:,:), &
                                    domain=self%Domain%mpp_domain)
   call restore_state(geom_restart, directory='')
   call free_restart_type(geom_restart)
@@ -676,11 +838,11 @@ subroutine geom_thickness2depth(self, h, z)
   js = lbound(h,dim=2)
   je = ubound(h,dim=2)
 
-  !allocate(z(is:ie, js:je, self%nzo))
+  !allocate(z(is:ie, js:je, self%nzl))
 
   do i = is, ie
      do j = js, je
-        do k = 1, self%nzo
+        do k = 1, self%nzl
            if (k.eq.1) then
               z(i,j,k) = 0.5_kind_real*h(i,j,k)
            else

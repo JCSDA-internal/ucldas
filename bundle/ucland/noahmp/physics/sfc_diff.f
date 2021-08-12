@@ -37,7 +37,7 @@
 !>  \section general_diff GFS Surface Layer Scheme General Algorithm
 !! - Calculate the thermal roughness length formulation over the ocean (see eq. (25) and (26)
 !!  in Zeng et al. (1998) \cite zeng_et_al_1998).
-!! - Calculate Zeng's momentum roughness length formulation over land and sea ice.
+!! - Calculate Zeng's lndentum roughness length formulation over land and sea ice.
 !! - Calculate the new vegetation-dependent formulation of thermal roughness length
 !! (Zheng et al.(2009) \cite zheng_et_al_2009).
 !! Zheng et al. (2009) \cite zheng_et_al_2009 proposed a new formulation on
@@ -45,13 +45,13 @@
 !! \f[
 !!  ln(Z_{0m}^,/Z_{0t})=(1-GVF)^2C_{zil}k(u*Z_{0g}/\nu)^{0.5}
 !! \f]
-!! where \f$Z_{0m}^,\f$ is the effective momentum roughness length
+!! where \f$Z_{0m}^,\f$ is the effective lndentum roughness length
 !! computed in the following equation for each grid, \f$Z_{0t}\f$
 !! is the roughness lenghth for heat, \f$C_{zil}\f$ is a coefficient
 !! (taken as 0.8), k is the Von Karman constant (0.4),
 !! \f$\nu=1.5\times10^{-5}m^{2}s^{-1}\f$ is the molecular viscosity,
 !! \f$u*\f$ is the friction velocity, and \f$Z_{0g}\f$ is the bare
-!! soil roughness length for momentum (taken as 0.01).
+!! soil roughness length for lndentum (taken as 0.01).
 !! \n In order to consider the convergence of \f$Z_{0m}\f$ between
 !! fully vegetated and bare soil, the effective \f$Z_{0m}^,\f$ is
 !! computed:

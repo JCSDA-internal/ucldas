@@ -15,7 +15,7 @@ namespace ucldas {
     : comm_(comm), conf_(conf) {
 
     // Get the file name of the fms namelist
-    inputnml_orig_ = conf_.getString("lss_input_nml");
+    inputnml_orig_ = conf_.getString("ucland_input_nml");
 
     // "input.nml" is protected
     ASSERT(inputnml_orig_ != "input.nml");

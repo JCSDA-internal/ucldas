@@ -23,7 +23,6 @@ public :: ucldas_vertconv, &
 
 !> Fortran derived type to hold the setup for Vertconv
 type :: ucldas_vertconv
-   integer                   :: iinst              !> Instance index
    real(kind=kind_real)      :: lz_min             !> Vertical decorrelation minimum [m]
    real(kind=kind_real)      :: lz_mld             !> if /= 0, Use MLD to calculate Lz
    real(kind=kind_real)      :: lz_mld_max         !> if calculating Lz from MLD, max value to use
@@ -110,7 +109,7 @@ subroutine ucldas_conv (self, convdx, dx)
 
   type(ucldas_field), pointer :: field_dx, field_convdx, layer_depth
 
-  call probe%get_instance(self%iinst)
+  call probe%get_instance('ucldas')
 
   call self%bkg%get("layer_depth", layer_depth)
   nl = layer_depth%nz
@@ -120,7 +119,7 @@ subroutine ucldas_conv (self, convdx, dx)
   do n=1,size(dx%fields)
     ! TODO remove these hardcoded values, use the yaml file
     select case(dx%fields(n)%name)
-    case ("tocn", "socn", "chl", "biop")
+    case ("tocn", "socn")
       call dx%get(dx%fields(n)%name, field_dx)
       call convdx%get(dx%fields(n)%name, field_convdx)
       do id = self%isc, self%iec
@@ -162,7 +161,7 @@ subroutine ucldas_conv_ad (self, convdx, dx)
   type(mpl_type) :: mpl
   type(ucldas_field), pointer :: field_dx, field_convdx, layer_depth
 
-  call probe%get_instance(self%iinst)
+  call probe%get_instance('ucldas')
 
   call self%bkg%get("layer_depth", layer_depth)
   nl = layer_depth%nz
@@ -171,7 +170,7 @@ subroutine ucldas_conv_ad (self, convdx, dx)
   do n=1,size(dx%fields)
     select case(dx%fields(n)%name)
    ! TODO remove these hardcoded values, use the yaml file
-    case ("tocn", "socn", "chl", "biop")
+    case ("tocn", "socn")
       call dx%get(dx%fields(n)%name, field_dx)
       call convdx%get(dx%fields(n)%name, field_convdx)
       do id = self%isc, self%iec

@@ -171,7 +171,7 @@ use machine ,   only : kind_phys
 
     real (kind=kind_phys) :: ch2op              !maximum intercepted h2o per unit lai+sai (mm)
     real (kind=kind_phys) :: dleaf              !characteristic leaf dimension (m)
-    real (kind=kind_phys) :: z0mvt              !momentum roughness length (m)
+    real (kind=kind_phys) :: z0mvt              !lndentum roughness length (m)
     real (kind=kind_phys) :: hvt                !top of canopy (m)
     real (kind=kind_phys) :: hvb                !bottom of canopy (m)
     real (kind=kind_phys) :: den                !tree density (no. of trunks per m2)
@@ -376,7 +376,7 @@ contains
   real (kind=kind_phys)                           , intent(inout) :: eah    !canopy air vapor pressure (pa)
   real (kind=kind_phys)                           , intent(inout) :: tah    !canopy air tmeperature (k)
   real (kind=kind_phys)                           , intent(inout) :: albold !snow albedo at last time step (class type)
-  real (kind=kind_phys)                           , intent(inout) :: cm     !momentum drag coefficient
+  real (kind=kind_phys)                           , intent(inout) :: cm     !lndentum drag coefficient
   real (kind=kind_phys)                           , intent(inout) :: ch     !sensible heat exchange coefficient
   real (kind=kind_phys)                           , intent(inout) :: tauss  !non-dimensional snow age
 
@@ -644,7 +644,7 @@ contains
                      pahv   ,pahg   ,pahb   ,qrain  ,qsnow  ,snowhin, & !out
 	             fwet   ,cmc                                    )   !out
 
-! compute energy budget (momentum & energy fluxes and phase changes) 
+! compute energy budget (lndentum & energy fluxes and phase changes) 
 
     call energy (parameters,ice    ,vegtyp ,ist    ,nsnow  ,nsoil  , & !in
                  isnow  ,dt     ,rhoair ,sfcprs ,qair   , & !in
@@ -1613,7 +1613,7 @@ contains
   real (kind=kind_phys)                              , intent(inout) :: tah    !canopy air temperature (k)
   real (kind=kind_phys)                              , intent(inout) :: albold !snow albedo at last time step(class type)
   real (kind=kind_phys)                              , intent(inout) :: tauss  !non-dimensional snow age
-  real (kind=kind_phys)                              , intent(inout) :: cm     !momentum drag coefficient
+  real (kind=kind_phys)                              , intent(inout) :: cm     !lndentum drag coefficient
   real (kind=kind_phys)                              , intent(inout) :: ch     !sensible heat exchange coefficient
   real (kind=kind_phys)                              , intent(inout) :: q1
 #ifdef CCPP
@@ -1639,9 +1639,9 @@ contains
   real (kind=kind_phys)                                              :: vai    !sum of lai  + stem area index [m2/m2]
   real (kind=kind_phys)                                              :: cwp    !canopy wind extinction parameter
   real (kind=kind_phys)                                              :: zpd    !zero plane displacement (m)
-  real (kind=kind_phys)                                              :: z0m    !z0 momentum (m)
+  real (kind=kind_phys)                                              :: z0m    !z0 lndentum (m)
   real (kind=kind_phys)                                              :: zpdg   !zero plane displacement (m)
-  real (kind=kind_phys)                                              :: z0mg   !z0 momentum, ground (m)
+  real (kind=kind_phys)                                              :: z0mg   !z0 lndentum, ground (m)
   real (kind=kind_phys)                                              :: emv    !vegetation emissivity
   real (kind=kind_phys)                                              :: emg    !ground emissivity
   real (kind=kind_phys)                                              :: fire   !emitted ir (w/m2)
@@ -1688,7 +1688,7 @@ contains
   real (kind=kind_phys),intent(out)                                              :: tr     !transpiration heat [w/m2] [+ to atm]
   real (kind=kind_phys),intent(out)                                              :: ghv    !ground heat flux [w/m2]  [+ to soil]
   real (kind=kind_phys),intent(out)                                  :: tgv    !ground surface temp. [k]
-  real (kind=kind_phys)                                              :: cmv    !momentum drag coefficient
+  real (kind=kind_phys)                                              :: cmv    !lndentum drag coefficient
   real (kind=kind_phys),intent(out)                                  :: chv    !sensible heat exchange coefficient
 
 ! temperature and fluxes over bare soil fraction
@@ -1700,7 +1700,7 @@ contains
   real (kind=kind_phys),intent(out)                                              :: evb    !evaporation heat [w/m2]  [+ to atm]
   real (kind=kind_phys),intent(out)                                              :: ghb    !ground heat flux [w/m2] [+ to soil]
   real (kind=kind_phys),intent(out)                                  :: tgb    !ground surface temp. [k]
-  real (kind=kind_phys)                                              :: cmb    !momentum drag coefficient
+  real (kind=kind_phys)                                              :: cmb    !lndentum drag coefficient
   real (kind=kind_phys),intent(out)                                  :: chb    !sensible heat exchange coefficient
   real (kind=kind_phys),intent(out)                                  :: chleaf !leaf exchange coefficient
   real (kind=kind_phys),intent(out)                                  :: chuc   !under canopy exchange coefficient
@@ -3360,8 +3360,8 @@ contains
   real (kind=kind_phys),                            intent(in) :: zlvl   !reference height (m)
 
   real (kind=kind_phys),                            intent(in) :: zpd    !zero plane displacement (m)
-  real (kind=kind_phys),                            intent(in) :: z0m    !roughness length, momentum (m)
-  real (kind=kind_phys),                            intent(in) :: z0mg   !roughness length, momentum, ground (m)
+  real (kind=kind_phys),                            intent(in) :: z0m    !roughness length, lndentum (m)
+  real (kind=kind_phys),                            intent(in) :: z0mg   !roughness length, lndentum, ground (m)
   real (kind=kind_phys),                            intent(in) :: emv    !vegetation emissivity
   real (kind=kind_phys),                            intent(in) :: emg    !ground emissivity
 
@@ -3401,7 +3401,7 @@ contains
   real (kind=kind_phys),                         intent(inout) :: tah    !canopy air temperature (k)
   real (kind=kind_phys),                         intent(inout) :: tv     !vegetation temperature (k)
   real (kind=kind_phys),                         intent(inout) :: tg     !ground temperature (k)
-  real (kind=kind_phys),                         intent(inout) :: cm     !momentum drag coefficient
+  real (kind=kind_phys),                         intent(inout) :: cm     !lndentum drag coefficient
   real (kind=kind_phys),                         intent(inout) :: ch     !sensible heat exchange coefficient
 
 #ifdef CCPP
@@ -3440,10 +3440,10 @@ contains
   real (kind=kind_phys) :: z0h          !roughness length, sensible heat (m)
   real (kind=kind_phys) :: z0hg         !roughness length, sensible heat (m)
   real (kind=kind_phys) :: rb           !bulk leaf boundary layer resistance (s/m)
-  real (kind=kind_phys) :: ramc         !aerodynamic resistance for momentum (s/m)
+  real (kind=kind_phys) :: ramc         !aerodynamic resistance for lndentum (s/m)
   real (kind=kind_phys) :: rahc         !aerodynamic resistance for sensible heat (s/m)
   real (kind=kind_phys) :: rawc         !aerodynamic resistance for water vapor (s/m)
-  real (kind=kind_phys) :: ramg         !aerodynamic resistance for momentum (s/m)
+  real (kind=kind_phys) :: ramg         !aerodynamic resistance for lndentum (s/m)
   real (kind=kind_phys) :: rahg         !aerodynamic resistance for sensible heat (s/m)
   real (kind=kind_phys) :: rawg         !aerodynamic resistance for water vapor (s/m)
 
@@ -3471,7 +3471,7 @@ contains
   real (kind=kind_phys) :: dsatw        !d(es)/dt at tg (pa/k) for water
   real (kind=kind_phys) :: dsati        !d(es)/dt at tg (pa/k) for ice
 
-  real (kind=kind_phys) :: fm           !momentum stability correction, weighted by prior iters
+  real (kind=kind_phys) :: fm           !lndentum stability correction, weighted by prior iters
   real (kind=kind_phys) :: fh           !sen heat stability correction, weighted by prior iters
   real (kind=kind_phys) :: fhg          !sen heat stability correction, ground
   real (kind=kind_phys) :: hcan         !canopy height (m) [note: hcan >= z0mg]
@@ -3492,7 +3492,7 @@ contains
   real (kind=kind_phys) :: moz          !monin-obukhov stability parameter
   real (kind=kind_phys) :: mozg         !monin-obukhov stability parameter
   real (kind=kind_phys) :: mozold       !monin-obukhov stability parameter from prior iteration
-  real (kind=kind_phys) :: fm2          !monin-obukhov momentum adjustment at 2m
+  real (kind=kind_phys) :: fm2          !monin-obukhov lndentum adjustment at 2m
   real (kind=kind_phys) :: fh2          !monin-obukhov heat adjustment at 2m
   real (kind=kind_phys) :: ch2          !surface exchange at 2m
   real (kind=kind_phys) :: thstar          !surface exchange at 2m
@@ -3912,7 +3912,7 @@ contains
   real (kind=kind_phys), dimension(-nsnow+1:nsoil), intent(in) :: dzsnso !thickness of snow/soil layers (m)
   real (kind=kind_phys),                            intent(in) :: zlvl   !reference height (m)
   real (kind=kind_phys),                            intent(in) :: zpd    !zero plane displacement (m)
-  real (kind=kind_phys),                            intent(in) :: z0m    !roughness length, momentum, ground (m)
+  real (kind=kind_phys),                            intent(in) :: z0m    !roughness length, lndentum, ground (m)
   real (kind=kind_phys),                            intent(in) :: emg    !ground emissivity
   real (kind=kind_phys), dimension(-nsnow+1:nsoil), intent(in) :: stc    !soil/snow temperature (k)
   real (kind=kind_phys), dimension(-nsnow+1:nsoil), intent(in) :: df     !thermal conductivity of snow/soil (w/m/k)
@@ -3936,7 +3936,7 @@ contains
 
 ! input/output
   real (kind=kind_phys),                         intent(inout) :: tgb    !ground temperature (k)
-  real (kind=kind_phys),                         intent(inout) :: cm     !momentum drag coefficient
+  real (kind=kind_phys),                         intent(inout) :: cm     !lndentum drag coefficient
   real (kind=kind_phys),                         intent(inout) :: ch     !sensible heat exchange coefficient
 #ifdef CCPP
   character(len=*),             intent(inout) :: errmsg
@@ -3978,7 +3978,7 @@ contains
   real (kind=kind_phys) :: wstar      !friction velocity n vertical direction (m/s) (only for sfcdif2)
   real (kind=kind_phys) :: z0h        !roughness length, sensible heat, ground (m)
   real (kind=kind_phys) :: rb         !bulk leaf boundary layer resistance (s/m)
-  real (kind=kind_phys) :: ramb       !aerodynamic resistance for momentum (s/m)
+  real (kind=kind_phys) :: ramb       !aerodynamic resistance for lndentum (s/m)
   real (kind=kind_phys) :: rahb       !aerodynamic resistance for sensible heat (s/m)
   real (kind=kind_phys) :: rawb       !aerodynamic resistance for water vapor (s/m)
   real (kind=kind_phys) :: mol        !monin-obukhov length (m)
@@ -3997,7 +3997,7 @@ contains
   real (kind=kind_phys) :: cq2b       !exchange coefficient for 2m temp.
   real (kind=kind_phys) :: thvair     !virtual potential air temp
   real (kind=kind_phys) :: thgh       !potential ground temp
-  real (kind=kind_phys) :: emb        !momentum conductance
+  real (kind=kind_phys) :: emb        !lndentum conductance
   real (kind=kind_phys) :: qfx        !moisture flux
   real (kind=kind_phys) :: estg2      !saturation vapor pressure at 2m (pa)
   integer :: vegtyp     !vegetation type set to isbarren
@@ -4016,10 +4016,10 @@ contains
   real (kind=kind_phys) :: h          !temporary sensible heat flux (w/m2)
   real (kind=kind_phys) :: moz        !monin-obukhov stability parameter
   real (kind=kind_phys) :: mozold     !monin-obukhov stability parameter from prior iteration
-  real (kind=kind_phys) :: fm         !momentum stability correction, weighted by prior iters
+  real (kind=kind_phys) :: fm         !lndentum stability correction, weighted by prior iters
   real (kind=kind_phys) :: fh         !sen heat stability correction, weighted by prior iters
   integer :: mozsgn  !number of times moz changes sign
-  real (kind=kind_phys) :: fm2          !monin-obukhov momentum adjustment at 2m
+  real (kind=kind_phys) :: fm2          !monin-obukhov lndentum adjustment at 2m
   real (kind=kind_phys) :: fh2          !monin-obukhov heat adjustment at 2m
   real (kind=kind_phys) :: ch2          !surface exchange at 2m
 
@@ -4213,7 +4213,7 @@ contains
   real (kind=kind_phys),                 intent(in) :: tv     !vegetation temperature (k)
   real (kind=kind_phys),                 intent(in) :: tah    !air temperature at height z0h+zpd (k)
   real (kind=kind_phys),                 intent(in) :: zpd    !zero plane displacement (m)
-  real (kind=kind_phys),                 intent(in) :: z0mg   !roughness length, momentum, ground (m)
+  real (kind=kind_phys),                 intent(in) :: z0mg   !roughness length, lndentum, ground (m)
   real (kind=kind_phys),                 intent(in) :: hcan   !canopy height (m) [note: hcan >= z0mg]
   real (kind=kind_phys),                 intent(in) :: uc     !wind speed at top of canopy (m/s)
   real (kind=kind_phys),                 intent(in) :: z0h    !roughness length, sensible heat (m)
@@ -4228,7 +4228,7 @@ contains
   real (kind=kind_phys),              intent(inout) :: fhg    !stability correction
 
 ! outputs
-  real (kind=kind_phys)                             :: ramg   !aerodynamic resistance for momentum (s/m)
+  real (kind=kind_phys)                             :: ramg   !aerodynamic resistance for lndentum (s/m)
   real (kind=kind_phys)                             :: rahg   !aerodynamic resistance for sensible heat (s/m)
   real (kind=kind_phys)                             :: rawg   !aerodynamic resistance for water vapor (s/m)
   real (kind=kind_phys)                             :: rb     !bulk leaf boundary layer resistance (s/m)
@@ -4300,7 +4300,7 @@ contains
 #endif
        &             cm     ,ch     ,fv     ,ch2     )          !out
 ! -------------------------------------------------------------------------------------------------
-! computing surface drag coefficient cm for momentum and ch for heat
+! computing surface drag coefficient cm for lndentum and ch for heat
 ! -------------------------------------------------------------------------------------------------
     implicit none
 ! -------------------------------------------------------------------------------------------------
@@ -4317,14 +4317,14 @@ contains
     real (kind=kind_phys),                 intent(in) :: zlvl   !reference height  (m)
     real (kind=kind_phys),                 intent(in) :: zpd    !zero plane displacement (m)
     real (kind=kind_phys),                 intent(in) :: z0h    !roughness length, sensible heat, ground (m)
-    real (kind=kind_phys),                 intent(in) :: z0m    !roughness length, momentum, ground (m)
+    real (kind=kind_phys),                 intent(in) :: z0m    !roughness length, lndentum, ground (m)
     real (kind=kind_phys),                 intent(in) :: ur     !wind speed (m/s)
     real (kind=kind_phys),                 intent(in) :: mpe    !prevents overflow error if division by zero
 ! in & out
 
     integer,           intent(inout) :: mozsgn !number of times moz changes sign
     real (kind=kind_phys),              intent(inout) :: moz    !monin-obukhov stability (z/l)
-    real (kind=kind_phys),              intent(inout) :: fm     !momentum stability correction, weighted by prior iters
+    real (kind=kind_phys),              intent(inout) :: fm     !lndentum stability correction, weighted by prior iters
     real (kind=kind_phys),              intent(inout) :: fh     !sen heat stability correction, weighted by prior iters
     real (kind=kind_phys),              intent(inout) :: fm2    !sen heat stability correction, weighted by prior iters
     real (kind=kind_phys),              intent(inout) :: fh2    !sen heat stability correction, weighted by prior iters
@@ -4335,7 +4335,7 @@ contains
 
 ! outputs
 
-    real (kind=kind_phys),                intent(out) :: cm     !drag coefficient for momentum
+    real (kind=kind_phys),                intent(out) :: cm     !drag coefficient for lndentum
     real (kind=kind_phys),                intent(out) :: ch     !drag coefficient for heat
     real (kind=kind_phys),                intent(out) :: fv     !friction velocity (m/s)
     real (kind=kind_phys),                intent(out) :: ch2    !drag coefficient for heat
@@ -4344,7 +4344,7 @@ contains
     real (kind=kind_phys)    :: mol                      !monin-obukhov length (m)
     real (kind=kind_phys)    :: tmpcm                    !temporary calculation for cm
     real (kind=kind_phys)    :: tmpch                    !temporary calculation for ch
-    real (kind=kind_phys)    :: fmnew                    !stability correction factor, momentum, for current moz
+    real (kind=kind_phys)    :: fmnew                    !stability correction factor, lndentum, for current moz
     real (kind=kind_phys)    :: fhnew                    !stability correction factor, sen heat, for current moz
     real (kind=kind_phys)    :: mozold                   !monin-obukhov stability parameter from prior iteration
     real (kind=kind_phys)    :: tmp1,tmp2,tmp3,tmp4,tmp5 !temporary calculation
@@ -4352,7 +4352,7 @@ contains
     real (kind=kind_phys)    :: moz2                     !2/l
     real (kind=kind_phys)    :: tmpcm2                   !temporary calculation for cm2
     real (kind=kind_phys)    :: tmpch2                   !temporary calculation for ch2
-    real (kind=kind_phys)    :: fm2new                   !stability correction factor, momentum, for current moz
+    real (kind=kind_phys)    :: fm2new                   !stability correction factor, lndentum, for current moz
     real (kind=kind_phys)    :: fh2new                   !stability correction factor, sen heat, for current moz
     real (kind=kind_phys)    :: tmp12,tmp22,tmp32        !temporary calculation
 

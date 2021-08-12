@@ -49,7 +49,7 @@ module noahmp_tables
      &                               0.04, 0.04, 0.00, 0.00, 0.00, 0.00,     &
      &                               0.00, 0.00, 0.00, 0.00, 0.00, 0.00 /
 
-    real :: z0mvt_table(mvt)       !momentum roughness length (m)
+    real :: z0mvt_table(mvt)       !lndentum roughness length (m)
       data   ( z0mvt_table(i),i=1,mvt) / 1.09, 1.10, 0.85, 0.80, 0.80, 0.20, &
      &                               0.06, 0.60, 0.50, 0.12, 0.30, 0.15,     &
      &                               1.00, 0.14, 0.00, 0.00, 0.00, 0.30,     &

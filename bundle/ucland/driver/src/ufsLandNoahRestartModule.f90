@@ -93,7 +93,7 @@ contains
       status = nf90_put_att(ncid, varid, "units", "K")
 
     status = nf90_def_var(ncid, "cm", NF90_DOUBLE, (/dim_id_loc,dim_id_time/), varid)
-      status = nf90_put_att(ncid, varid, "long_name", "surface exchange coeff for momentum")
+      status = nf90_put_att(ncid, varid, "long_name", "surface exchange coeff for lndentum")
       status = nf90_put_att(ncid, varid, "units", "m/s")
 
     status = nf90_def_var(ncid, "ch", NF90_DOUBLE, (/dim_id_loc,dim_id_time/), varid)

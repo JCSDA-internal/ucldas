@@ -551,7 +551,7 @@
 !    sneqv   - liquid water-equivalent snow depth (m)
 !    albedo  - surface albedo including snow effect (unitless fraction)
 !    ch      - surface exchange coefficient for heat and moisture (m s-1) -> chx
-!    cm      - surface exchange coefficient for momentum (m s-1)          -> cmx
+!    cm      - surface exchange coefficient for lndentum (m s-1)          -> cmx
 
           isnowx   = nint(snowxy(i))
           tvx      = tvxy(i)
@@ -1053,7 +1053,7 @@
       
         parameters%ch2op  =  ch2op_table(vegtype)       !maximum intercepted h2o per unit lai+sai (mm)
         parameters%dleaf  =  dleaf_table(vegtype)       !characteristic leaf dimension (m)
-        parameters%z0mvt  =  z0mvt_table(vegtype)       !momentum roughness length (m)
+        parameters%z0mvt  =  z0mvt_table(vegtype)       !lndentum roughness length (m)
         parameters%hvt    =    hvt_table(vegtype)       !top of canopy (m)
         parameters%hvb    =    hvb_table(vegtype)       !bottom of canopy (m)
         parameters%den    =    den_table(vegtype)       !tree density (no. of trunks per m2)

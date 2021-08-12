@@ -14,37 +14,37 @@ use time_manager_mod,         only: time_type
 
 use kinds, only: kind_real
 
-use UCLAND,                 only : initialize_UCLAND, step_UCLAND, UCLAND_control_struct, UCLAND_end, &
-                                extract_surface_state, finish_UCLAND_initialization, &
-                                get_UCLAND_state_elements
-use UCLAND_diag_mediator,   only : diag_ctrl
-use UCLAND_domains,         only : UCLAND_infra_init, UCLAND_infra_end, &
-                                UCLAND_domains_init, clone_UCLAND_domain, UCLAND_domain_type
-use UCLAND_error_handler,   only : UCLAND_error, UCLAND_mesg, WARNING, FATAL, is_root_pe
-use UCLAND_file_parser,     only : get_param, param_file_type, close_param_file
-use UCLAND_forcing_type,    only : forcing, mech_forcing, forcing_diagnostics, &
-                                mech_forcing_diags, UCLAND_forcing_chksum, &
-                                UCLAND_mech_forcing_chksum
-use UCLAND_get_input,       only : directories, Get_UCLAND_Input, directories
-use UCLAND_grid,            only : ocean_grid_type, UCLAND_grid_init
-use UCLAND_io,              only : open_file, close_file, &
+use LND,                 only : initialize_LND, step_LND, LND_control_struct, LND_end, &
+                                extract_surface_state, finish_LND_initialization, &
+                                get_LND_state_elements
+use LND_diag_mediator,   only : diag_ctrl
+use LND_domains,         only : LND_infra_init, LND_infra_end, &
+                                LND_domains_init, clone_LND_domain, LND_domain_type
+use LND_error_handler,   only : LND_error, LND_mesg, WARNING, FATAL, is_root_pe
+use LND_file_parser,     only : get_param, param_file_type, close_param_file
+use LND_forcing_type,    only : forcing, mech_forcing, forcing_diagnostics, &
+                                mech_forcing_diags, LND_forcing_chksum, &
+                                LND_mech_forcing_chksum
+use LND_get_input,       only : directories, Get_LND_Input, directories
+use LND_grid,            only : ocean_grid_type, LND_grid_init
+use LND_io,              only : open_file, close_file, &
                                 check_nml_error, io_infra_init, io_infra_end, &
                                 ASCII_FILE, READONLY_FILE
-use UCLAND_restart,         only : UCLAND_restart_CS
-use UCLAND_string_functions,only : uppercase
-use UCLAND_surface_forcing, only : set_forcing, forcing_save_restart, &
+use LND_restart,         only : LND_restart_CS
+use LND_string_functions,only : uppercase
+use LND_surface_forcing, only : set_forcing, forcing_save_restart, &
                                 surface_forcing_init, surface_forcing_CS
-use UCLAND_time_manager,    only : time_type, set_date, get_date, &
+use LND_time_manager,    only : time_type, set_date, get_date, &
                                 real_to_time, time_type_to_real, &
                                 operator(+), operator(-), operator(*), operator(/), &
                                 operator(>), operator(<), operator(>=), &
                                 increment_date, set_calendar_type, month_name, &
                                 JULIAN, GREGORIAN, NOLEAP, THIRTY_DAY_MONTHS, &
                                 NO_CALENDAR
-use UCLAND_tracer_flow_control, only : tracer_flow_control_CS
-use UCLAND_unit_scaling,        only : unit_scale_type
-use UCLAND_variables,       only : surface
-use UCLAND_verticalGrid,    only : verticalGrid_type, &
+use LND_tracer_flow_control, only : tracer_flow_control_CS
+use LND_unit_scaling,        only : unit_scale_type
+use LND_variables,       only : surface
+use LND_verticalGrid,    only : verticalGrid_type, &
                                 verticalGridInit, verticalGridEnd
 
 implicit none
@@ -62,12 +62,12 @@ type ucldas_ucland_config
   real               :: dt_forcing !< Coupling time step in seconds.
   type(time_type)    :: Time_step_ocean !< time_type version of dt_forcing
   type(directories)  :: dirs       !< Relevant dirs/path
-  type(time_type)    :: Time       !< Model's time before call to step_UCLAND.
+  type(time_type)    :: Time       !< Model's time before call to step_LND.
   type(unit_scale_type), pointer :: scaling !< Unit conversion factors
   type(ocean_grid_type),    pointer :: grid !< Grid metrics
   type(verticalGrid_type),  pointer :: GV   !< Vertical grid
-  type(UCLAND_control_struct), pointer :: UCLAND_CSp  !< Tracer flow control structure.
-  type(UCLAND_restart_CS),     pointer :: restart_CSp !< A pointer to the restart control structure
+  type(LND_control_struct), pointer :: LND_CSp  !< Tracer flow control structure.
+  type(LND_restart_CS),     pointer :: restart_CSp !< A pointer to the restart control structure
   type(surface_forcing_CS), pointer :: surface_forcing_CSp => NULL()
   type(fckit_mpi_comm) :: f_comm
   type(param_file_type) :: param_file
@@ -78,7 +78,7 @@ contains
 ! ------------------------------------------------------------------------------
 !> Initialize ucland's domain
 subroutine ucldas_geomdomain_init(Domain, nk, f_comm)
-  type(UCLAND_domain_type), pointer, intent(in) :: Domain !< Ocean model domain
+  type(LND_domain_type), pointer, intent(in) :: Domain !< Ocean model domain
   integer, intent(out)                       :: nk
   type(fckit_mpi_comm),           intent(in) :: f_comm
 
@@ -95,10 +95,10 @@ subroutine ucldas_geomdomain_init(Domain, nk, f_comm)
   call fms_io_init()
 
   ! Parse grid inputs
-  call Get_UCLAND_Input(param_file, dirs)
+  call Get_LND_Input(param_file, dirs)
 
   ! Domain decomposition/Inintialize mpp domains
-  call UCLAND_domains_init(Domain, param_file)
+  call LND_domains_init(Domain, param_file)
 
   ! Get number of levels
   call get_param(param_file, mod_name, "NK", nk, fail_if_missing=.true.)
@@ -143,7 +143,7 @@ subroutine ucldas_ucland_init(ucland_config, partial_init)
   ! Check if partial ucland init is requiered
   if (present(partial_init)) a_partial_init = partial_init
 
-  call UCLAND_infra_init(localcomm=ucland_config%f_comm%communicator())
+  call LND_infra_init(localcomm=ucland_config%f_comm%communicator())
   call io_infra_init()
 
   ! Provide for namelist specification of the run length and calendar data.
@@ -161,9 +161,9 @@ subroutine ucldas_ucland_init(ucland_config, partial_init)
   elseif (calendar(1:10)=='THIRTY_DAY') then ; calendar_type = THIRTY_DAY_MONTHS
   elseif (calendar(1:11)=='NO_CALENDAR') then; calendar_type = NO_CALENDAR
   elseif (calendar(1:1) /= ' ') then
-     call UCLAND_error(FATAL,'UCLAND_driver: Invalid namelist value '//trim(calendar)//' for calendar')
+     call LND_error(FATAL,'LND_driver: Invalid namelist value '//trim(calendar)//' for calendar')
   else
-     call UCLAND_error(FATAL,'UCLAND_driver: No namelist value for calendar')
+     call LND_error(FATAL,'LND_driver: No namelist value for calendar')
   endif
   call set_calendar_type(calendar_type)
 
@@ -173,7 +173,7 @@ subroutine ucldas_ucland_init(ucland_config, partial_init)
   call time_interp_external_init
 
   ! Nullify ucland_config pointers
-  ucland_config%UCLAND_CSp => NULL()
+  ucland_config%LND_CSp => NULL()
   ucland_config%restart_CSp => NULL()
   ucland_config%grid => NULL()
   ucland_config%GV => NULL()
@@ -184,18 +184,18 @@ subroutine ucldas_ucland_init(ucland_config, partial_init)
   ! Initialize ucland
   Time_in = ucland_config%Time
 
-  call initialize_UCLAND(ucland_config%Time, &
+  call initialize_LND(ucland_config%Time, &
       Start_time, &
       param_file, &
       ucland_config%dirs, &
-      ucland_config%UCLAND_CSp, &
+      ucland_config%LND_CSp, &
       ucland_config%restart_CSp, &
       offline_tracer_mode=offline_tracer_mode, diag_ptr=diag, &
       tracer_flow_CSp=tracer_flow_CSp, Time_in=Time_in)
 
   !US => ucland_config%scaling
   ! Continue initialization
-  call get_UCLAND_state_elements(ucland_config%UCLAND_CSp,&
+  call get_LND_state_elements(ucland_config%LND_CSp,&
                               G=ucland_config%grid,&
                               GV=ucland_config%GV,&
                               US=ucland_config%scaling,&
@@ -206,7 +206,7 @@ subroutine ucldas_ucland_init(ucland_config, partial_init)
   if (a_partial_init) return
 
   ! Setup surface forcing
-  call extract_surface_state(ucland_config%UCLAND_CSp, ucland_config%sfc_state)
+  call extract_surface_state(ucland_config%LND_CSp, ucland_config%sfc_state)
   call surface_forcing_init(ucland_config%Time,&
                             ucland_config%grid,&
                             ucland_config%scaling,&
@@ -215,7 +215,7 @@ subroutine ucldas_ucland_init(ucland_config, partial_init)
                             ucland_config%surface_forcing_CSp,&
                             tracer_flow_CSp)
 
-  ! Get time step from UCLAND config. TODO: Get DT from DA config
+  ! Get time step from LND config. TODO: Get DT from DA config
   call get_param(param_file, mod_name, "DT", param_int, fail_if_missing=.true.)
   dt = real(param_int)
   ucland_config%dt_forcing = dt
@@ -234,10 +234,10 @@ subroutine ucldas_ucland_init(ucland_config, partial_init)
                    ucland_config%scaling, &
                    ucland_config%surface_forcing_CSp)
 
-  ! Do more stuff for ucland init ...
-  call finish_UCLAND_initialization(ucland_config%Time,&
+  ! Do more stuff for mom init ...
+  call finish_LND_initialization(ucland_config%Time,&
                                  ucland_config%dirs,&
-                                 ucland_config%UCLAND_CSp,&
+                                 ucland_config%LND_CSp,&
                                  ucland_config%restart_CSp)
 
 end subroutine ucldas_ucland_init
@@ -250,11 +250,11 @@ subroutine ucldas_ucland_end(ucland_config)
   ! Finalize fms
   call io_infra_end
 
-  !! as a temporary workaround to MPI_Finalize() issues, UCLAND_infra_end is NOT called
-  ! call UCLAND_infra_end
+  !! as a temporary workaround to MPI_Finalize() issues, LND_infra_end is NOT called
+  ! call LND_infra_end
 
   ! Finalize ucland
-  call UCLAND_end(ucland_config%UCLAND_CSp)
+  call LND_end(ucland_config%LND_CSp)
 
 end subroutine ucldas_ucland_end
 

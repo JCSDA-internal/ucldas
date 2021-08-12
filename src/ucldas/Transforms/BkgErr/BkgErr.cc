@@ -1,5 +1,5 @@
 /*
- * (C) Copyright 2017-2020  UCAR.
+ * (C) Copyright 2017-2021  UCAR.
  *
  * This software is licensed under the terms of the Apache Licence Version 2.0
  * which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
@@ -8,20 +8,28 @@
 #include <ostream>
 #include <string>
 
-#include "ucldas/Geometry/Geometry.h"
-#include "ucldas/Increment/Increment.h"
-#include "ucldas/State/State.h"
-#include "ucldas/Transforms/BkgErr/BkgErr.h"
-#include "ucldas/Transforms/BkgErr/BkgErrFortran.h"
-
 #include "eckit/config/Configuration.h"
 
 #include "oops/base/Variables.h"
+#include "oops/interface/LinearVariableChange.h"
 #include "oops/util/Logger.h"
+
+#include "ucldas/Geometry/Geometry.h"
+#include "ucldas/Increment/Increment.h"
+#include "ucldas/State/State.h"
+#include "ucldas/Traits.h"
+#include "ucldas/Transforms/BkgErr/BkgErr.h"
+#include "ucldas/Transforms/BkgErr/BkgErrFortran.h"
 
 using oops::Log;
 
 namespace ucldas {
+
+  // -----------------------------------------------------------------------------
+  static oops::LinearVariableChangeMaker<Traits,
+            oops::LinearVariableChange<Traits, BkgErr> >
+            makerLinearVariableChangeBkgErr_("BkgErrUCLDAS");
+
   // -----------------------------------------------------------------------------
   BkgErr::BkgErr(const State & bkg,
                  const State & traj,

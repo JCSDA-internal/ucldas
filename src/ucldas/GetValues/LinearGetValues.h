@@ -1,5 +1,5 @@
 /*
- * (C) Copyright 2019-2020 UCAR
+ * (C) Copyright 2019-2021 UCAR
  *
  * This software is licensed under the terms of the Apache Licence Version 2.0
  * which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
@@ -8,14 +8,14 @@
 #ifndef UCLDAS_GETVALUES_LINEARGETVALUES_H_
 #define UCLDAS_GETVALUES_LINEARGETVALUES_H_
 
+#include <memory>
 #include <ostream>
 #include <string>
-#include <memory>
-
-#include "ucldas/Fortran.h"
 
 #include "oops/util/ObjectCounter.h"
 #include "oops/util/Printable.h"
+
+#include "ucldas/Fortran.h"
 
 #include "ufo/Locations.h"
 
@@ -23,6 +23,8 @@
 namespace ucldas {
   class Increment;
   class State;
+  class Model2GeoVaLs;
+  class LinearModel2GeoVaLs;
 }
 namespace ufo {
   class GeoVaLs;
@@ -42,7 +44,8 @@ class LinearGetValues : public util::Printable,
   static const std::string classname() {return "ucldas::LinearGetValues";}
 
   ///  Constructor, destructor
-  LinearGetValues(const Geometry &, const ufo::Locations &);
+  LinearGetValues(const Geometry &, const ufo::Locations &,
+                  const eckit::Configuration &);
   virtual ~LinearGetValues();
 
   /// Trajectory for the linearized interpolation
@@ -66,6 +69,8 @@ class LinearGetValues : public util::Printable,
   F90getval keyLinearGetValues_;
   ufo::Locations locs_;
   std::shared_ptr<const Geometry> geom_;
+  std::unique_ptr<Model2GeoVaLs> model2geovals_;
+  std::unique_ptr<LinearModel2GeoVaLs> linearmodel2geovals_;
 };
 // -----------------------------------------------------------------------------
 

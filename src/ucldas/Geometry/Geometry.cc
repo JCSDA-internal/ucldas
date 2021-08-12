@@ -10,6 +10,8 @@
 #include "atlas/grid.h"
 #include "atlas/util/Config.h"
 
+#include "eckit/config/YAMLConfiguration.h"
+
 #include "ucldas/Geometry/Geometry.h"
 
 // -----------------------------------------------------------------------------
@@ -21,9 +23,10 @@ namespace ucldas {
       atmconf_(conf),
       initatm_(initAtm(conf)),
       fmsinput_(comm, conf) {
-    const eckit::Configuration * configc = &conf;
+
     fmsinput_.updateNameList();
-    ucldas_geo_setup_f90(keyGeom_, &configc, &comm);
+
+    ucldas_geo_setup_f90(keyGeom_, &conf, &comm);
 
     // Set ATLAS lon/lat field
     atlasFieldSet_.reset(new atlas::FieldSet());
@@ -48,7 +51,7 @@ namespace ucldas {
       initatm_(initAtm(other.atmconf_)),
       fmsinput_(other.fmsinput_) {
     const int key_geo = other.keyGeom_;
-    ucldas_geo_clone_f90(key_geo, keyGeom_);
+    ucldas_geo_clone_f90(keyGeom_, key_geo);
     atlasFunctionSpace_.reset(new atlas::functionspace::PointCloud(
                               other.atlasFunctionSpace_->lonlat()));
     ucldas_geo_set_atlas_functionspace_pointer_f90(keyGeom_,
@@ -79,6 +82,13 @@ namespace ucldas {
     // return end of the geometry on this mpi tile
     // decided to return index out of bounds for the iterator loops to work
     return GeometryIterator(*this, -1, -1);
+  }
+  // -----------------------------------------------------------------------------
+  std::vector<size_t> Geometry::variableSizes(
+      const oops::Variables & vars) const {
+    std::vector<size_t> lvls(vars.size());
+    ucldas_geo_get_num_levels_f90(toFortran(), vars, lvls.size(), lvls.data());
+    return lvls;
   }
   // -----------------------------------------------------------------------------
   void Geometry::print(std::ostream & os) const {

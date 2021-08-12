@@ -21,7 +21,8 @@ use fms_io_mod, only: fms_io_init, fms_io_exit, &
                       restore_state, query_initialized, &
                       free_restart_type, save_restart
 use mpp_domains_mod, only : mpp_update_domains
-use UCLAND_remapping, only : remapping_CS, initialize_remapping, remapping_core_h, end_remapping
+use LND_remapping, only : remapping_CS, initialize_remapping, remapping_core_h, end_remapping
+use ucldas_fields_metadata_mod
 use ucldas_geom_mod, only : ucldas_geom
 use ucldas_fieldsutils_mod, only: ucldas_genfilename, fldinfo
 use ucldas_utils, only: ucldas_mld
@@ -47,11 +48,8 @@ type :: ucldas_field
   real(kind=kind_real),     pointer :: mask(:,:) => null() !< field mask
   real(kind=kind_real),     pointer :: lon(:,:) => null()  !< field lon
   real(kind=kind_real),     pointer :: lat(:,:) => null()  !< field lat
-  character(len=1)                  :: c_grid_loc !< "h", "u" or "v"
-  character(len=:),     allocatable :: cf_name    !< the (optional) name needed by UFO
-  character(len=:),     allocatable :: io_name    !< the (optional) name use in the restart IO
-  character(len=:),     allocatable :: io_file    !< the (optional) restart file domain
-                                                  ! (ocn, sfc, ice)
+  type(ucldas_field_metadata)         :: metadata   ! parameters for the field as determined
+                                                  ! by the configuration yaml
 contains
   procedure :: copy            => ucldas_field_copy
   procedure :: delete          => ucldas_field_delete
@@ -69,7 +67,7 @@ end type ucldas_field
 !> to manipulate them. Represents all the fields of a given state
 !> or increment
 type :: ucldas_fields
-   type(ucldas_geom),  pointer :: geom           !< UCLAND6 Geometry
+   type(ucldas_geom),  pointer :: geom           !< UCLAND Geometry
    type(ucldas_field), pointer :: fields(:) => null()
 
 contains
@@ -112,7 +110,6 @@ end type ucldas_fields
 
 
 contains
-
 
 ! ------------------------------------------------------------------------------
 ! ucldas_field subroutines
@@ -196,8 +193,6 @@ end subroutine
 
 ! ------------------------------------------------------------------------------
 !> for a given list of field names, initialize the properties of those fields
-! NOTE: this information should be moved into a yaml file
-! TODO, allocate space for derived variables
 subroutine ucldas_fields_init_vars(self, vars)
   class(ucldas_fields),          intent(inout) :: self
   character(len=:), allocatable, intent(in) :: vars(:)
@@ -208,36 +203,47 @@ subroutine ucldas_fields_init_vars(self, vars)
   do i=1,size(vars)
     self%fields(i)%name = trim(vars(i))
 
-    ! Default stencil grid loc is h-point
-    self%fields(i)%lon => self%geom%lon
-    self%fields(i)%lat => self%geom%lat
+    ! get the field metadata parameters that are read in from a config file
+    self%fields(i)%metadata = self%geom%fields_metadata%get(self%fields(i)%name)
 
-    ! determine number of levels, and if masked
-    select case(self%fields(i)%name)
-    case ('tocn','socn', 'hocn', 'layer_depth', 'chl', 'biop')
-      nz = self%geom%nzo
-      self%fields(i)%mask => self%geom%mask2d
-    case ('uocn')
-      nz = self%geom%nzo
-      self%fields(i)%mask => self%geom%mask2du
+    ! Set grid location and masks
+    select case(self%fields(i)%metadata%grid)
+    case ('h')
+      self%fields(i)%lon => self%geom%lon
+      self%fields(i)%lat => self%geom%lat
+      if (self%fields(i)%metadata%masked) &
+        self%fields(i)%mask => self%geom%mask2d
+    case ('u')
       self%fields(i)%lon => self%geom%lonu
       self%fields(i)%lat => self%geom%latu
-    case ('vocn')
-      nz = self%geom%nzo
-      self%fields(i)%mask => self%geom%mask2dv
-      self%fields(i)%lon => self%geom%lonv
-      self%fields(i)%lat => self%geom%latv
-    case ('hicen','hsnon', 'cicen')
-      nz = 1
-      self%fields(i)%mask => self%geom%mask2d
-    case ('ssh', 'mld')
-      nz = 1
-      self%fields(i)%mask => self%geom%mask2d
-    case ('sw', 'lhf', 'shf', 'lw', 'us')
-      nz = 1
+      if (self%fields(i)%metadata%masked) &
+        self%fields(i)%mask => self%geom%mask2du
+    case ('v')
+        self%fields(i)%lon => self%geom%lonv
+        self%fields(i)%lat => self%geom%latv
+        if (self%fields(i)%metadata%masked) &
+          self%fields(i)%mask => self%geom%mask2dv
     case default
-      call abor1_ftn('ucldas_fields::create(): unknown field '// self%fields(i)%name)
+      call abor1_ftn('ucldas_fields::create(): Illegal grid '// &
+                     self%fields(i)%metadata%grid // &
+                     ' given for ' // self%fields(i)%name)
     end select
+
+    ! determine number of levels
+    if (self%fields(i)%name == self%fields(i)%metadata%getval_name_surface) then
+      ! if this field is a surface getval, override the number of levels with 1
+      nz = 1
+    else
+      select case(self%fields(i)%metadata%levels)
+      case ('full_ocn')
+        nz = self%geom%nzo
+      case ('1') ! TODO, generalize to work with any number?
+        nz = 1
+      case default
+        call abor1_ftn('ucldas_fields::create(): Illegal levels '//self%fields(i)%metadata%levels// &
+                       ' given for ' // self%fields(i)%name)
+      end select
+    endif
 
     ! allocate space
     self%fields(i)%nz = nz
@@ -245,79 +251,6 @@ subroutine ucldas_fields_init_vars(self, vars)
       self%geom%isd:self%geom%ied, &
       self%geom%jsd:self%geom%jed, &
       nz ))
-
-    ! set other variables associated with each field
-    self%fields(i)%cf_name = ""
-    self%fields(i)%io_name = ""
-    self%fields(i)%c_grid_loc = "h"
-    select case(self%fields(i)%name)
-    case ('tocn')
-      self%fields(i)%cf_name = "sea_water_potential_temperature"
-      self%fields(i)%io_file = "ocn"
-      self%fields(i)%io_name = "Temp"
-    case ('socn')
-      self%fields(i)%cf_name = "sea_water_practical_salinity"
-      self%fields(i)%io_file = "ocn"
-      self%fields(i)%io_name = "Salt"
-    case ('ssh')
-      self%fields(i)%cf_name = "sea_surface_height_above_geoid"
-      self%fields(i)%io_file = "ocn"
-      self%fields(i)%io_name = "ave_ssh"
-    case ('hocn')
-      self%fields(i)%cf_name = "sea_water_cell_thickness"
-      self%fields(i)%io_file = "ocn"
-      self%fields(i)%io_name = "h"
-    case ('uocn')
-      self%fields(i)%cf_name = "sea_water_zonal_current"
-      self%fields(i)%io_file = "ocn"
-      self%fields(i)%io_name = "u"
-      self%fields(i)%c_grid_loc = "u"
-    case ('vocn')
-      self%fields(i)%cf_name = "sea_water_meridional_current"
-      self%fields(i)%io_file = "ocn"
-      self%fields(i)%io_name = "v"
-      self%fields(i)%c_grid_loc = "v"
-    case ('hicen')
-      self%fields(i)%cf_name = "sea_ice_category_thickness"
-      self%fields(i)%io_file = "ice"
-      self%fields(i)%io_name = "hicen"
-    case ('cicen')
-      self%fields(i)%cf_name = "sea_ice_category_area_fraction"
-      self%fields(i)%io_file = "ice"
-      self%fields(i)%io_name = "aicen"
-    case ('hsnon')
-      self%fields(i)%cf_name = "sea_ice_category_snow_thickness"
-      self%fields(i)%io_file = "ice"
-      self%fields(i)%io_name = "hsnon"
-    case ('sw')
-      self%fields(i)%cf_name = "net_downwelling_shortwave_radiation"
-      self%fields(i)%io_file = "sfc"
-      self%fields(i)%io_name = "sw_rad"
-    case ('lw')
-      self%fields(i)%cf_name = "net_downwelling_longwave_radiation"
-      self%fields(i)%io_file = "sfc"
-      self%fields(i)%io_name = "lw_rad"
-    case ('lhf')
-      self%fields(i)%cf_name = "upward_latent_heat_flux_in_air"
-      self%fields(i)%io_file = "sfc"
-      self%fields(i)%io_name = "latent_heat"
-    case ('shf')
-      self%fields(i)%cf_name = "upward_sensible_heat_flux_in_air"
-      self%fields(i)%io_file = "sfc"
-      self%fields(i)%io_name = "sens_heat"
-    case ('us')
-      self%fields(i)%cf_name = "friction_velocity_over_water"
-      self%fields(i)%io_file = "sfc"
-      self%fields(i)%io_name = "fric_vel"
-    case ('chl')
-      self%fields(i)%cf_name = "mass_concentration_of_chlorophyll_in_sea_water"
-      self%fields(i)%io_file = "ocn"
-      self%fields(i)%io_name = "chl"
-    case ('biop')
-      self%fields(i)%cf_name = "molar_concentration_of_biomass_in_sea_water_in_p_units"
-      self%fields(i)%io_file = "ocn"
-      self%fields(i)%io_name = "biomass_p"
-    end select
 
   end do
 end subroutine
@@ -595,14 +528,14 @@ subroutine ucldas_fields_read(fld, f_conf, vdate)
   type(datetime),            intent(inout) :: vdate   !< DateTime
 
   integer, parameter :: max_string_length=800
-  character(len=max_string_length) :: ocn_filename, sfc_filename, ice_filename, filename
+  character(len=max_string_length) :: ocn_filename, sfc_filename, ice_filename, wav_filename, filename
   character(len=:), allocatable :: basename, incr_filename
   integer :: iread = 0
   integer :: ii
   logical :: vert_remap=.false.
   character(len=max_string_length) :: remap_filename
   real(kind=kind_real), allocatable :: h_common(:,:,:)    !< layer thickness to remap to
-  type(restart_file_type), target :: ocean_restart, sfc_restart, ice_restart
+  type(restart_file_type), target :: ocean_restart, sfc_restart, ice_restart, wav_restart
   type(restart_file_type) :: ocean_remap_restart
   type(restart_file_type), pointer :: restart
   integer :: idr
@@ -612,7 +545,7 @@ subroutine ucldas_fields_read(fld, f_conf, vdate)
   type(remapping_CS)  :: remapCS
   character(len=:), allocatable :: str
   real(kind=kind_real), allocatable :: h_common_ij(:), hocn_ij(:), varocn_ij(:), varocn2_ij(:)
-  logical :: read_sfc, read_ice
+  logical :: read_sfc, read_ice, read_wav
   type(ucldas_field), pointer :: field, field2, hocn, mld, layer_depth
 
   if ( f_conf%has("read_from_file") ) &
@@ -680,13 +613,23 @@ subroutine ucldas_fields_read(fld, f_conf, vdate)
       ice_filename = trim(basename)//trim(str)
     end if
 
+    ! filename for wav
+    read_wav = .false.
+    wav_filename=""
+    if ( f_conf%has("wav_filename") ) then
+      call f_conf%get_or_die("basename", str)
+      basename = str
+      call f_conf%get_or_die("wav_filename", str)
+      wav_filename = trim(basename)//trim(str)
+    end if
+
     call fms_io_init()
 
     ! built-in variables
     do i=1,size(fld%fields)
-      if(fld%fields(i)%io_name /= "") then
+      if(fld%fields(i)%metadata%io_name /= "") then
         ! which file are we reading from?
-        select case(fld%fields(i)%io_file)
+        select case(fld%fields(i)%metadata%io_file)
         case ('ocn')
           filename = ocn_filename
           restart => ocean_restart
@@ -699,16 +642,20 @@ subroutine ucldas_fields_read(fld, f_conf, vdate)
           filename = ice_filename
           restart => ice_restart
           read_ice = .true.
+        case ('wav')
+          filename = wav_filename
+          restart => wav_restart
+          read_wav = .true.
         case default
-          call abor1_ftn('read_file(): illegal io_file: '//fld%fields(i)%io_file)
+          call abor1_ftn('read_file(): illegal io_file: '//fld%fields(i)%metadata%io_file)
         end select
 
       ! setup to read
         if (fld%fields(i)%nz == 1) then
-          idr = register_restart_field(restart, filename, fld%fields(i)%io_name, &
+          idr = register_restart_field(restart, filename, fld%fields(i)%metadata%io_name, &
               fld%fields(i)%val(:,:,1), domain=fld%geom%Domain%mpp_domain)
         else
-          idr = register_restart_field(restart, filename, fld%fields(i)%io_name, &
+          idr = register_restart_field(restart, filename, fld%fields(i)%metadata%io_name, &
               fld%fields(i)%val(:,:,:), domain=fld%geom%Domain%mpp_domain)
         end if
       end if
@@ -723,6 +670,10 @@ subroutine ucldas_fields_read(fld, f_conf, vdate)
     if (read_ice) then
       call restore_state(ice_restart, directory='')
       call free_restart_type(ice_restart)
+    end if
+    if (read_wav) then
+      call restore_state(wav_restart, directory='')
+      call free_restart_type(wav_restart)
     end if
 
     call fms_io_exit()
@@ -924,28 +875,30 @@ subroutine ucldas_fields_write_rst(fld, f_conf, vdate)
   type(datetime),            intent(inout) :: vdate    !< DateTime
 
   integer, parameter :: max_string_length=800
-  character(len=max_string_length) :: ocn_filename, sfc_filename, ice_filename, filename
-  type(restart_file_type), target :: ocean_restart, sfc_restart, ice_restart
+  character(len=max_string_length) :: ocn_filename, sfc_filename, ice_filename, wav_filename, filename
+  type(restart_file_type), target :: ocean_restart, sfc_restart, ice_restart, wav_restart
   type(restart_file_type), pointer :: restart
   integer :: idr, i
   type(ucldas_field), pointer :: field
-  logical :: write_sfc, write_ice
+  logical :: write_sfc, write_ice, write_wav
 
   write_ice = .false.
   write_sfc = .false.
+  write_wav = .false.
   call fms_io_init()
 
   ! filenames
   ocn_filename = ucldas_genfilename(f_conf,max_string_length,vdate,"ocn")
   sfc_filename = ucldas_genfilename(f_conf,max_string_length,vdate,"sfc")
   ice_filename = ucldas_genfilename(f_conf, max_string_length,vdate,"ice")
+  wav_filename = ucldas_genfilename(f_conf, max_string_length,vdate,"wav")
 
   ! built in variables
   do i=1,size(fld%fields)
     field => fld%fields(i)
-    if (len_trim(field%io_file) /= 0) then
+    if (len_trim(field%metadata%io_file) /= 0) then
       ! which file are we writing to
-      select case(field%io_file)
+      select case(field%metadata%io_file)
       case ('ocn')
         filename = ocn_filename
         restart => ocean_restart
@@ -957,16 +910,20 @@ subroutine ucldas_fields_write_rst(fld, f_conf, vdate)
         filename = ice_filename
         restart => ice_restart
         write_ice = .true.
+      case ('wav')
+        filename = wav_filename
+        restart => wav_restart
+        write_wav = .true.
       case default
-        call abor1_ftn('ucldas_write_restart(): illegal io_file: '//field%io_file)
+        call abor1_ftn('ucldas_write_restart(): illegal io_file: '//field%metadata%io_file)
       end select
 
       ! write
       if (field%nz == 1) then
-        idr = register_restart_field( restart, filename, field%io_name, &
+        idr = register_restart_field( restart, filename, field%metadata%io_name, &
           field%val(:,:,1), domain=fld%geom%Domain%mpp_domain)
       else
-        idr = register_restart_field( restart, filename, field%io_name, &
+        idr = register_restart_field( restart, filename, field%metadata%io_name, &
         field%val(:,:,:), domain=fld%geom%Domain%mpp_domain)
       end if
     end if
@@ -982,6 +939,10 @@ subroutine ucldas_fields_write_rst(fld, f_conf, vdate)
   if (write_ice) then
     call save_restart(ice_restart, directory='')
     call free_restart_type(ice_restart)
+  end if
+  if (write_wav) then
+    call save_restart(wav_restart, directory='')
+    call free_restart_type(wav_restart)
   end if
   call fms_io_exit()
 
@@ -1020,7 +981,7 @@ subroutine ucldas_fields_colocate(self, cgridlocout)
   do i=1,size(self%fields)
 
     ! Check if already colocated
-    if (self%fields(i)%c_grid_loc == cgridlocout) cycle
+    if (self%fields(i)%metadata%grid == cgridlocout) cycle
 
     ! Initialize fms spherical idw interpolation
      g => self%geom
@@ -1041,7 +1002,7 @@ subroutine ucldas_fields_colocate(self, cgridlocout)
     end do
 
     ! Update c-grid location
-    self%fields(i)%c_grid_loc = cgridlocout
+    self%fields(i)%metadata%grid = cgridlocout
     select case(cgridlocout)
     ! TODO: Test colocation to u and v grid
     !case ('u')

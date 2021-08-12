@@ -18,11 +18,11 @@ use ucldas_fields_mod
 use datetime_mod, only: datetime, datetime_to_string
 use mpp_domains_mod, only : mpp_update_domains
 use time_manager_mod, only : time_type, print_time, print_date, set_date
-use UCLAND, only : step_UCLAND
-use UCLAND_restart, only : save_restart
-use UCLAND_surface_forcing, only : set_forcing
-use UCLAND_time_manager, only : real_to_time, time_type_to_real
-use UCLAND_time_manager, only : operator(+)
+use LND, only : step_LND
+use LND_restart, only : save_restart
+use LND_surface_forcing, only : set_forcing
+use LND_time_manager, only : real_to_time, time_type_to_real
+use LND_time_manager, only : operator(+)
 
 implicit none
 
@@ -38,7 +38,7 @@ public :: ucldas_delete
 type :: ucldas_model
    integer :: advance_ucland      !< call ucland step if true
    real(kind=kind_real) :: dt0  !< dimensional time (seconds)
-   type(ucldas_ucland_config) :: ucland_config  !< UCLAND6 data structure
+   type(ucldas_ucland_config) :: ucland_config  !< UCLAND data structure
    real(kind_real), dimension(2) :: tocn_minmax, socn_minmax  !< min, max values
 end type ucldas_model
 
@@ -58,7 +58,7 @@ subroutine ucldas_setup(self, geom)
 end subroutine ucldas_setup
 
 ! ------------------------------------------------------------------------------
-!> Prepare UCLAND6 integration
+!> Prepare UCLAND integration
 subroutine ucldas_initialize_integration(self, flds)
   type(ucldas_model), intent(inout) :: self
   type(ucldas_state), intent(inout) :: flds
@@ -73,24 +73,24 @@ subroutine ucldas_initialize_integration(self, flds)
     ! Update halos
     call mpp_update_domains(field%val, flds%geom%Domain%mpp_domain)
 
-    ! impose bounds, and set UCLAND6 state
+    ! impose bounds, and set UCLAND state
     select case (field%name)
     case ("tocn")
       if ( self%tocn_minmax(1) /= real(-999., kind=8) ) &
         where( field%val < self%tocn_minmax(1) ) field%val = self%tocn_minmax(1)
       if ( self%tocn_minmax(2) /= real(-999., kind=8) ) &
         where( field%val > self%tocn_minmax(2) ) field%val = self%tocn_minmax(2)
-      self%ucland_config%UCLAND_CSp%T = real(field%val, kind=8)
+      self%ucland_config%LND_CSp%T = real(field%val, kind=8)
     case ("socn")
       if ( self%socn_minmax(1) /= real(-999., kind=8) ) &
         where( field%val < self%socn_minmax(1) ) field%val = self%socn_minmax(1)
       if ( self%socn_minmax(2) /= real(-999., kind=8) ) &
         where( field%val > self%socn_minmax(2) ) field%val = self%socn_minmax(2)
-      self%ucland_config%UCLAND_CSp%S = real(field%val, kind=8)
+      self%ucland_config%LND_CSp%S = real(field%val, kind=8)
     case ("uocn")
-      self%ucland_config%UCLAND_CSp%u = real(field%val, kind=8)
+      self%ucland_config%LND_CSp%u = real(field%val, kind=8)
     case ("vocn")
-      self%ucland_config%UCLAND_CSp%v = real(field%val, kind=8)
+      self%ucland_config%LND_CSp%v = real(field%val, kind=8)
     end select
 
     ! update forcing
@@ -110,7 +110,7 @@ subroutine ucldas_initialize_integration(self, flds)
 end subroutine ucldas_initialize_integration
 
 ! ------------------------------------------------------------------------------
-!> Advance UCLAND6 one baroclinic time step
+!> Advance UCLAND one baroclinic time step
 subroutine ucldas_propagate(self, flds, fldsdate)
   type(ucldas_model), intent(inout) :: self
   type(ucldas_state), intent(inout) :: flds
@@ -146,19 +146,19 @@ subroutine ucldas_propagate(self, flds, fldsdate)
                       self%ucland_config%surface_forcing_CSp)
      call fms_io_exit()
 
-     ! Advance UCLAND in a single step call (advance dyna and thermo)
-     call step_UCLAND(self%ucland_config%forces, &
+     ! Advance LND in a single step call (advance dyna and thermo)
+     call step_LND(self%ucland_config%forces, &
                    self%ucland_config%fluxes, &
                    self%ucland_config%sfc_state, &
                    self%ucland_config%Time, &
                    real(self%ucland_config%dt_forcing, kind=8), &
-                   self%ucland_config%UCLAND_CSp,&
+                   self%ucland_config%LND_CSp,&
                    start_cycle=.false.,&
-                   cycle_length=self%ucland_config%UCLAND_CSp%dt)
+                   cycle_length=self%ucland_config%LND_CSp%dt)
   end if
 
   ! Update ocean clock
-  ocean_time = ocean_time + real_to_time(self%ucland_config%UCLAND_CSp%dt)
+  ocean_time = ocean_time + real_to_time(self%ucland_config%LND_CSp%dt)
   self%ucland_config%Time = ocean_time
 
   ! Update ucldas fields
@@ -166,17 +166,17 @@ subroutine ucldas_propagate(self, flds, fldsdate)
     field => flds%fields(i)
     select case(field%name)
     case ("tocn")
-      field%val = real(self%ucland_config%UCLAND_CSp%T, kind=kind_real)
+      field%val = real(self%ucland_config%LND_CSp%T, kind=kind_real)
     case ("socn")
-      field%val = real(self%ucland_config%UCLAND_CSp%S, kind=kind_real)
+      field%val = real(self%ucland_config%LND_CSp%S, kind=kind_real)
     case ("hocn")
-      field%val = real(self%ucland_config%UCLAND_CSp%h, kind=kind_real)
+      field%val = real(self%ucland_config%LND_CSp%h, kind=kind_real)
     case ("ssh")
-      field%val(:,:,1) = real(self%ucland_config%UCLAND_CSp%ave_ssh_ibc, kind=kind_real)
+      field%val(:,:,1) = real(self%ucland_config%LND_CSp%ave_ssh_ibc, kind=kind_real)
     case ("uocn")
-      field%val = real(self%ucland_config%UCLAND_CSp%u, kind=kind_real)
+      field%val = real(self%ucland_config%LND_CSp%u, kind=kind_real)
     case ("vocn")
-      field%val = real(self%ucland_config%UCLAND_CSp%v, kind=kind_real)
+      field%val = real(self%ucland_config%LND_CSp%v, kind=kind_real)
     case ("sw")
       field%val(:,:,1) = - real(self%ucland_config%fluxes%sw, kind=kind_real)
     case ("lw")
@@ -192,7 +192,7 @@ subroutine ucldas_propagate(self, flds, fldsdate)
 end subroutine ucldas_propagate
 
 ! ------------------------------------------------------------------------------
-!> Finalize UCLAND6 integration: Update ucland's state and checkpoint
+!> Finalize UCLAND integration: Update ucland's state and checkpoint
 subroutine ucldas_finalize_integration(self, flds)
   type(ucldas_model), intent(inout) :: self
   type(ucldas_state), intent(inout) :: flds
@@ -207,28 +207,28 @@ subroutine ucldas_finalize_integration(self, flds)
     ! update halos
     call mpp_update_domains(field%val, flds%geom%Domain%mpp_domain)
 
-    ! impose bounds and update UCLAND6
+    ! impose bounds and update UCLAND
     select case(field%name)
     case ("tocn")
       if ( self%tocn_minmax(1) /= real(-999., kind=8) ) &
         where( field%val < self%tocn_minmax(1) ) field%val = self%tocn_minmax(1)
       if ( self%tocn_minmax(2) /= real(-999., kind=8) ) &
         where( field%val > self%tocn_minmax(2) ) field%val = self%tocn_minmax(2)
-      self%ucland_config%UCLAND_CSp%T = real(field%val, kind=8)
+      self%ucland_config%LND_CSp%T = real(field%val, kind=8)
     case ("socn")
       if ( self%socn_minmax(1) /= real(-999., kind=8) ) &
         where( field%val < self%socn_minmax(1) ) field%val = self%socn_minmax(1)
       if ( self%socn_minmax(2) /= real(-999., kind=8) ) &
         where( field%val > self%socn_minmax(2) ) field%val = self%socn_minmax(2)
-      self%ucland_config%UCLAND_CSp%S = real(field%val, kind=8)
+      self%ucland_config%LND_CSp%S = real(field%val, kind=8)
     case ("uocn")
-      self%ucland_config%UCLAND_CSp%u = real(field%val, kind=8)
+      self%ucland_config%LND_CSp%u = real(field%val, kind=8)
     case ("vocn")
-      self%ucland_config%UCLAND_CSp%v = real(field%val, kind=8)
+      self%ucland_config%LND_CSp%v = real(field%val, kind=8)
     end select
   end do
 
-  ! Save UCLAND restarts with updated UCLDAS fields
+  ! Save LND restarts with updated UCLDAS fields
   call save_restart(self%ucland_config%dirs%restart_output_dir, &
                    self%ucland_config%Time, &
                    self%ucland_config%grid, &

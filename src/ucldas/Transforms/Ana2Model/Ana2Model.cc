@@ -5,20 +5,26 @@
  * which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
  */
 
-#include "ucldas/Transforms/Ana2Model/Ana2Model.h"
 
 #include <ostream>
 #include <string>
 
 #include "eckit/config/Configuration.h"
+#include "eckit/exception/Exceptions.h"
+#include "oops/util/Logger.h"
 #include "ucldas/Geometry/Geometry.h"
 #include "ucldas/State/State.h"
-#include "oops/util/Logger.h"
-#include "eckit/exception/Exceptions.h"
+#include "ucldas/Transforms/Ana2Model/Ana2Model.h"
 
 using oops::Log;
 
 namespace ucldas {
+
+// -----------------------------------------------------------------------------
+
+static oops::VariableChangeMaker<ucldas::Traits, ucldas::Ana2Model >
+               makerVariableChangeAna2Model_("Ana2Model");
+
 // -----------------------------------------------------------------------------
 Ana2Model::Ana2Model(const Geometry & resol, const eckit::Configuration & conf)
 : uvars_(initRotate(conf, "u")), vvars_(initRotate(conf, "v")),

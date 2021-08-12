@@ -59,7 +59,7 @@ type :: noahmp_model_type
   real(kind=kind_phys), allocatable :: albinir   (:) ! albedo - diffuse NIR     ( fraction )       im
   real(kind=kind_phys), allocatable :: snet      (:) ! total sky sfc netsw flx into ground[W/m**2] im NOT USED
   real(kind=kind_phys), allocatable :: tg3       (:) ! deep soil temperature [K]                   im
-  real(kind=kind_phys), allocatable :: cm        (:) ! surface exchange coeff for momentum [m/s]   im
+  real(kind=kind_phys), allocatable :: cm        (:) ! surface exchange coeff for lndentum [m/s]   im
   real(kind=kind_phys), allocatable :: ch        (:) ! surface exchange coeff heat & moisture[m/s] im
   real(kind=kind_phys), allocatable :: prsl1     (:) ! sfc layer 1 mean pressure [Pa]              im
   real(kind=kind_phys), allocatable :: prslki    (:) !                                             im
@@ -94,7 +94,7 @@ type :: noahmp_model_type
   real(kind=kind_phys), allocatable :: canliqxy  (:) ! canopy-intercepted liquid water [mm]
   real(kind=kind_phys), allocatable :: eahxy     (:) ! canopy air vapor pressure [pa]
   real(kind=kind_phys), allocatable :: tahxy     (:) ! canopy air temperature [K]
-  real(kind=kind_phys), allocatable :: cmxy      (:) ! bulk momentum drag coefficient [m/s]
+  real(kind=kind_phys), allocatable :: cmxy      (:) ! bulk lndentum drag coefficient [m/s]
   real(kind=kind_phys), allocatable :: chxy      (:) ! bulk sensible heat exchange coefficient [m/s]
   real(kind=kind_phys), allocatable :: fwetxy    (:) ! wetted or snowed fraction of the canopy [-]
   real(kind=kind_phys), allocatable :: sneqvoxy  (:) ! snow mass at last time step[mm h2o]

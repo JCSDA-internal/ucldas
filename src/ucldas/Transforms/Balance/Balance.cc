@@ -8,19 +8,28 @@
 #include <ostream>
 #include <string>
 
+#include "eckit/config/Configuration.h"
+
+#include "oops/interface/LinearVariableChange.h"
+#include "oops/util/Logger.h"
+
 #include "ucldas/Geometry/Geometry.h"
 #include "ucldas/Increment/Increment.h"
 #include "ucldas/State/State.h"
+#include "ucldas/Traits.h"
 #include "ucldas/Transforms/Balance/Balance.h"
 #include "ucldas/Transforms/Balance/BalanceFortran.h"
-
-#include "eckit/config/Configuration.h"
-
-#include "oops/util/Logger.h"
 
 using oops::Log;
 
 namespace ucldas {
+
+  // -----------------------------------------------------------------------------
+
+  static oops::LinearVariableChangeMaker<Traits,
+            oops::LinearVariableChange<Traits, Balance> >
+            makerLinearVariableChangeBalance_("BalanceUCLDAS");
+
   // -----------------------------------------------------------------------------
   Balance::Balance(const State & bkg,
                    const State & traj,

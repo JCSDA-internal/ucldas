@@ -25,7 +25,7 @@ using oops::Log;
 
 namespace ucldas {
   // -----------------------------------------------------------------------------
-  static oops::ModelMaker<Traits, Model> makermodel_("UCLDAS");
+  static oops::interface::ModelMaker<Traits, Model> makermodel_("UCLDAS");
   // -----------------------------------------------------------------------------
   Model::Model(const Geometry & resol, const eckit::Configuration & model)
     : keyConfig_(0),
@@ -61,8 +61,8 @@ namespace ucldas {
   // -----------------------------------------------------------------------------
   void Model::step(State & xx, const ModelBias &) const {
     Log::trace() << "Model::Time: " << xx.validTime() << std::endl;
-    util::DateTime * moducldaste = &xx.validTime();
-    ucldas_propagate_f90(keyConfig_, xx.toFortran(), &moducldaste);
+    util::DateTime * modeldate = &xx.validTime();
+    ucldas_propagate_f90(keyConfig_, xx.toFortran(), &modeldate);
     xx.validTime() += tstep_;
   }
   // -----------------------------------------------------------------------------

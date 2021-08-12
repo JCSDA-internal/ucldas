@@ -67,7 +67,7 @@
 !!\param[in,out] sneqv    real, water-equivalent snow depth (\f$m\f$), note: snow density = snwqv/snowh
 !!\param[in,out] ch       real, sfc exchange coeff for heat & moisture (\f$ms^{-1}\f$),
 !! note: conductance since it's been mult by wind
-!!\param[in,out] cm       real, sfc exchange coeff for momentum
+!!\param[in,out] cm       real, sfc exchange coeff for lndentum
 !! (\f$ms^{-1}\f$), note: conductance since it's been mult by wind
 !!\param[in,out] z0       real, roughness length (\f$m\f$)
 !!\param[out] nroot       integer, number of root layers
@@ -220,7 +220,7 @@
 !                      note: snow density = snwqv/snowh                 !
 !     ch       - real, sfc exchange coeff for heat & moisture (m/s)1    !
 !                      note: conductance since it's been mult by wind   !
-!     cm       - real, sfc exchange coeff for momentum (m/s)       1    !
+!     cm       - real, sfc exchange coeff for lndentum (m/s)       1    !
 !                      note: conductance since it's been mult by wind   !
 !                                                                       !
 !  outputs:                                                             !
@@ -761,7 +761,7 @@
 !           from sfcdif times air density and parameter "cp".  "rch" is
 !           computed in "call penman". rch rather than ch is the coeff
 !           usually invoked later in eqns.
-!         - sfcdif also returns the surface exchange coefficient for momentum,
+!         - sfcdif also returns the surface exchange coefficient for lndentum,
 !           cm, also known as the surface drage coefficient, but cm is not
 !           used here.
 
@@ -1984,7 +1984,7 @@
 !     czil     - real, param to cal roughness length of heat       1    !
 !                                                                       !
 !  input/outputs from and to the calling program:                       !
-!     cm       - real, sfc exchange coeff for momentum (m/s)       1    !
+!     cm       - real, sfc exchange coeff for lndentum (m/s)       1    !
 !     ch       - real, sfc exchange coeff for heat & moisture (m/s)1    !
 !                                                                       !
 !  ====================    end of description    =====================  !

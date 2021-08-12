@@ -1,5 +1,5 @@
 /*
- * (C) Copyright 2017-2020  UCAR.
+ * (C) Copyright 2017-2021  UCAR.
  *
  * This software is licensed under the terms of the Apache Licence Version 2.0
  * which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
@@ -8,19 +8,28 @@
 #include <ostream>
 #include <string>
 
+#include "eckit/config/Configuration.h"
+
+#include "oops/interface/LinearVariableChange.h"
+#include "oops/util/Logger.h"
+
 #include "ucldas/Geometry/Geometry.h"
 #include "ucldas/Increment/Increment.h"
 #include "ucldas/State/State.h"
+#include "ucldas/Traits.h"
 #include "ucldas/Transforms/VertConv/VertConv.h"
 #include "ucldas/Transforms/VertConv/VertConvFortran.h"
 
-#include "eckit/config/Configuration.h"
-
-#include "oops/util/Logger.h"
 
 using oops::Log;
 
 namespace ucldas {
+
+  // -----------------------------------------------------------------------------
+  static oops::LinearVariableChangeMaker<Traits,
+            oops::LinearVariableChange<Traits, VertConv> >
+            makerLinearVariableCHangeVertConv_("VertConvUCLDAS");
+
   // -----------------------------------------------------------------------------
   VertConv::VertConv(const State & bkg,
                      const State & traj,

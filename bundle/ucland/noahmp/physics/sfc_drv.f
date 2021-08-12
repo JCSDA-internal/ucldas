@@ -118,7 +118,7 @@
 !     snet     - real, total sky sfc netsw flx into ground(w/m**2) im   !
 !     delt     - real, time interval (second)                      1    !
 !     tg3      - real, deep soil temperature (k)                   im   !
-!     cm       - real, surface exchange coeff for momentum (m/s)   im   !
+!     cm       - real, surface exchange coeff for lndentum (m/s)   im   !
 !     ch       - real, surface exchange coeff heat & moisture(m/s) im   !
 !     prsl1    - real, sfc layer 1 mean pressure (pa)              im   !
 !     prslki   - real, dimensionless exner function at layer 1     im   !
@@ -457,7 +457,7 @@
 ! sneqv      - liquid water-equivalent snow depth (\f$m\f$)
 ! albedo     - surface albedo including snow effect (unitless fraction)
 ! ch         - surface exchange coefficient for heat and moisture (\f$m s^{-1}\f$) -> chx
-! cm         - surface exchange coefficient for momentum (\f$m s^{-1}\f$)          -> cmx
+! cm         - surface exchange coefficient for lndentum (\f$m s^{-1}\f$)          -> cmx
 ! z0         - surface roughness (\f$m\f$)     -> zorl(\f$cm\f$)
 
           cmc = canopy(i) * 0.001_kind_phys      ! convert from mm to m

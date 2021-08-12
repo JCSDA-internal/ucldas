@@ -419,7 +419,7 @@ function slasher(dir)
   endif
 end function slasher
 
-!> \namespace mom_string_functions
+!> \namespace lnd_string_functions
 !!
 !!  By Alistair Adcroft and Robert Hallberg, last updated Sept. 2013.
 !!

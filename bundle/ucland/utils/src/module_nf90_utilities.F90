@@ -6,13 +6,13 @@ module module_nf90_utilities
     module procedure unf90_io_varatt_char
     module procedure unf90_io_varatt_real
     module procedure unf90_io_varatt_int
-    module procedure unf90_io_varatt_double
+!   module procedure unf90_io_varatt_double
   end interface
   interface unf90_out_varatt
     module procedure unf90_out_varatt_char
     module procedure unf90_out_varatt_real
     module procedure unf90_out_varatt_int
-    module procedure unf90_out_varatt_double
+!   module procedure unf90_out_varatt_double
   end interface
   interface unf90_def_var
     module procedure unf90_def_var_str
@@ -22,19 +22,19 @@ module module_nf90_utilities
   interface unf90_io_var
     module procedure unf90_io1d_int
     module procedure unf90_io1d_real
-    module procedure unf90_io1d_double
+!   module procedure unf90_io1d_double
     module procedure unf90_io2d_int
     module procedure unf90_io2d_real
-    module procedure unf90_io2d_double
+!   module procedure unf90_io2d_double
     module procedure unf90_io1d_time_real
-    module procedure unf90_io1d_time_double
+!   module procedure unf90_io1d_time_double
     module procedure unf90_io2d_time_real
-    module procedure unf90_io2d_time_double
+!   module procedure unf90_io2d_time_double
     module procedure unf90_io3d_real
     module procedure unf90_io3d_int
-    module procedure unf90_io3d_double
+!   module procedure unf90_io3d_double
     module procedure unf90_io4d_real
-    module procedure unf90_io4d_double
+!   module procedure unf90_io4d_double
   end interface
   interface unf90_rd_tile2vec
     module procedure unf90_rd1d_real_tile2vec
